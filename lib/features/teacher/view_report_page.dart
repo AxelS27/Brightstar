@@ -71,8 +71,6 @@ class _ViewReportPageState extends State<ViewReportPage> {
     }
     final teacherName =
         teacherData?['data']?['teacherName'] ?? 'Unknown Teacher';
-    final profileImageUrl =
-        teacherData?['data']?['profile_image']; // ✅ Tambahkan ini
     final filteredReports = selectedCourse == 'All Courses'
         ? reports
         : reports.where((r) => r['courseName'] == selectedCourse).toList();
@@ -83,16 +81,18 @@ class _ViewReportPageState extends State<ViewReportPage> {
         preferredSize: const Size.fromHeight(170),
         child: BrightStarAppBar(
           title: "View Reports",
-          profileImageUrl: profileImageUrl,
           teacherName: teacherName,
+          profileImageUrl: teacherData?['data']?['profile_image'],
           showBackButton: false,
-          onAvatarTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) =>
-                  TeacherInformationPage(teacherId: widget.teacherId),
-            ),
-          ),
+          onAvatarTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) =>
+                    TeacherInformationPage(teacherId: widget.teacherId),
+              ),
+            );
+          },
         ),
       ),
       body: SafeArea(

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import '../../core/config/api_config.dart';
 
 class BrightStarAppBar extends StatelessWidget {
   final String title;
   final String teacherName;
+  final String? profileImageUrl;
   final bool showBackButton;
   final VoidCallback? onBack;
   final VoidCallback? onAvatarTap;
@@ -10,10 +12,10 @@ class BrightStarAppBar extends StatelessWidget {
     super.key,
     required this.title,
     required this.teacherName,
+    this.profileImageUrl,
     this.showBackButton = false,
     this.onBack,
     this.onAvatarTap,
-    required profileImageUrl,
   });
 
   @override
@@ -101,38 +103,24 @@ class BrightStarAppBar extends StatelessWidget {
                       color: Color(0xFFF3E5F5),
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
-                      letterSpacing: 0.4,
-                      shadows: [
-                        Shadow(
-                          color: Colors.black26,
-                          offset: Offset(1, 1),
-                          blurRadius: 2,
-                        ),
-                      ],
                     ),
                   ),
                   const SizedBox(width: 12),
-                  Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white70, width: 1.5),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x40000000),
-                          blurRadius: 8,
-                          offset: Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: const CircleAvatar(
-                      radius: 26,
-                      backgroundColor: Colors.white,
-                      child: Icon(
-                        Icons.person,
-                        size: 28,
-                        color: Color(0xFF6A1B9A),
-                      ),
-                    ),
+                  CircleAvatar(
+                    radius: 26,
+                    backgroundColor: Colors.white,
+                    backgroundImage: profileImageUrl != null
+                        ? NetworkImage(
+                            "${ApiConfig.baseUrl}/uploads/$profileImageUrl",
+                          )
+                        : null,
+                    child: profileImageUrl == null
+                        ? const Icon(
+                            Icons.person,
+                            size: 28,
+                            color: Color(0xFF6A1B9A),
+                          )
+                        : null,
                   ),
                 ],
               ),

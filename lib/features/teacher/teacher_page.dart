@@ -69,64 +69,6 @@ class _TeacherPageState extends State<TeacherPage> {
     );
   }
 
-  void _showStudentSelection(
-    String sessionId,
-    String courseName,
-    String courseDate,
-    String room,
-    String startTime,
-    String endTime,
-  ) {
-    final studentsInSession = _schedules
-        .where(
-          (s) => s['session_id'] == sessionId && s['courseDate'] == courseDate,
-        )
-        .toList();
-
-    if (studentsInSession.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No students enrolled in this session')),
-      );
-      return;
-    }
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Select Student'),
-        content: SizedBox(
-          width: 300,
-          height: 300,
-          child: ListView.builder(
-            itemCount: studentsInSession.length,
-            itemBuilder: (context, index) {
-              final student = studentsInSession[index];
-              final hasReport = student['hasReport'] == '1';
-              return ListTile(
-                title: Text(student['studentName']),
-                subtitle: Text(hasReport ? '✅ Report exists' : 'No report'),
-                trailing: Icon(
-                  hasReport ? Icons.visibility : Icons.edit_note,
-                  color: hasReport ? Colors.green : Colors.orange,
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  _openReportPopup(student, readOnly: hasReport);
-                },
-              );
-            },
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: Navigator.of(context).pop,
-            child: const Text('Cancel'),
-          ),
-        ],
-      ),
-    );
-  }
-
   String _monthName(int month) {
     const months = [
       'January',
@@ -245,14 +187,17 @@ class _TeacherPageState extends State<TeacherPage> {
           title: "Teacher Dashboard",
           teacherName: teacherName,
           profileImageUrl: teacherData?['data']?['profile_image'],
-          onAvatarTap: () {
-            Navigator.push(
+          onAvatarTap: () async {
+            final result = await Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (_) =>
                     TeacherInformationPage(teacherId: widget.teacherId),
               ),
             );
+            if (result == true) {
+              _loadTeacherInfo();
+            }
           },
         ),
       ),
@@ -496,6 +441,62 @@ class _TeacherPageState extends State<TeacherPage> {
                 ),
               );
             }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showStudentSelection(
+    String sessionId,
+    String courseName,
+    String courseDate,
+    String room,
+    String startTime,
+    String endTime,
+  ) {
+    final studentsInSession = _schedules
+        .where(
+          (s) => s['session_id'] == sessionId && s['courseDate'] == courseDate,
+        )
+        .toList();
+    if (studentsInSession.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No students enrolled in this session')),
+      );
+      return;
+    }
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Select Student'),
+        content: SizedBox(
+          width: 300,
+          height: 300,
+          child: ListView.builder(
+            itemCount: studentsInSession.length,
+            itemBuilder: (context, index) {
+              final student = studentsInSession[index];
+              final hasReport = student['hasReport'] == '1';
+              return ListTile(
+                title: Text(student['studentName']),
+                subtitle: Text(hasReport ? '✅ Report exists' : 'No report'),
+                trailing: Icon(
+                  hasReport ? Icons.visibility : Icons.edit_note,
+                  color: hasReport ? Colors.green : Colors.orange,
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _openReportPopup(student, readOnly: hasReport);
+                },
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: Navigator.of(context).pop,
+            child: const Text('Cancel'),
           ),
         ],
       ),
