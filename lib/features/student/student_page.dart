@@ -1,23 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
-import '../../shared/widgets/teacher_report_popup.dart';
 import '../../shared/widgets/brightstar_appbar.dart';
-import 'teacher_information_page.dart';
-import '../../core/services/teacher_service.dart';
+import '../../shared/widgets/report_detail_popup.dart';
+import 'student_information_page.dart';
+import '../../../core/services/student_service.dart';
 
-class TeacherPage extends StatefulWidget {
-  final String teacherId;
-  const TeacherPage({super.key, required this.teacherId});
+class StudentPage extends StatefulWidget {
+  final String studentId;
+  const StudentPage({super.key, required this.studentId});
 
   @override
-  State<TeacherPage> createState() => _TeacherPageState();
+  State<StudentPage> createState() => _StudentPageState();
 }
 
-class _TeacherPageState extends State<TeacherPage> {
+class _StudentPageState extends State<StudentPage> {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
-  Map<String, dynamic>? teacherData;
+  Map<String, dynamic>? studentData;
   bool _isLoading = true;
   List<Map<String, dynamic>> _schedules = [];
   List<Map<String, dynamic>> _filteredSchedules = [];
@@ -26,20 +26,20 @@ class _TeacherPageState extends State<TeacherPage> {
   @override
   void initState() {
     super.initState();
-    _loadTeacherInfo();
-    _loadTeacherSchedule();
+    _loadStudentInfo();
+    _loadStudentSchedule();
   }
 
-  Future<void> _loadTeacherInfo() async {
-    final data = await TeacherService.getTeacherInfo(widget.teacherId);
+  Future<void> _loadStudentInfo() async {
+    final data = await StudentService.getStudentInfo(widget.studentId);
     setState(() {
-      teacherData = data;
+      studentData = data;
       _isLoading = false;
     });
   }
 
-  Future<void> _loadTeacherSchedule() async {
-    final schedules = await TeacherService.getTeacherSchedule(widget.teacherId);
+  Future<void> _loadStudentSchedule() async {
+    final schedules = await StudentService.getStudentSchedule(widget.studentId);
     setState(() {
       _schedules = schedules;
       _filterSchedulesForDay(_focusedDay);
@@ -52,21 +52,6 @@ class _TeacherPageState extends State<TeacherPage> {
     _filteredSchedules = _schedules
         .where((s) => s["courseDate"] == dateStr)
         .toList();
-  }
-
-  void _openReportPopup(
-    Map<String, dynamic> classData, {
-    bool readOnly = false,
-  }) {
-    showDialog(
-      context: context,
-      barrierDismissible: true,
-      builder: (context) => TeacherReportPopup(
-        classData: classData,
-        readOnly: readOnly,
-        onReportSaved: _loadTeacherSchedule,
-      ),
-    );
   }
 
   String _monthName(int month) {
@@ -173,8 +158,9 @@ class _TeacherPageState extends State<TeacherPage> {
         ),
       );
     }
-    final teacherName =
-        teacherData?['data']?['teacherName'] ?? 'Unknown Teacher';
+    final studentName =
+        studentData?['data']?['studentName'] ?? 'Unknown Student';
+    final profileImageUrl = studentData?['data']?['profile_image'];
     final upcoming = _upcomingClasses();
     final ongoing = _ongoingClasses();
     final past = _pastClasses();
@@ -184,15 +170,18 @@ class _TeacherPageState extends State<TeacherPage> {
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(170),
         child: BrightStarAppBar(
-          title: "Teacher Dashboard",
-          teacherName: teacherName,
-          onAvatarTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) =>
-                  TeacherInformationPage(teacherId: widget.teacherId),
-            ),
-          ),
+          title: "Student Dashboard",
+          teacherName: studentName,
+          profileImageUrl: profileImageUrl,
+          onAvatarTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) =>
+                    StudentInformationPage(studentId: widget.studentId),
+              ),
+            );
+          },
         ),
       ),
       body: SafeArea(
@@ -205,7 +194,7 @@ class _TeacherPageState extends State<TeacherPage> {
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16),
                 child: Text(
-                  "Schedule",
+                  "My Schedule",
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
               ),
@@ -393,11 +382,11 @@ class _TeacherPageState extends State<TeacherPage> {
         final start = _format.parse("${cls["courseDate"]} ${cls["startTime"]}");
         final end = _format.parse("${cls["courseDate"]} ${cls["endTime"]}");
         if (start.isBefore(endToday) && end.isAfter(startToday)) {
-          return const Color(0xFF00C853); // Hijau cerah → Ongoing
+          return const Color(0xFF00C853);
         } else if (start.isAfter(endToday)) {
-          return const Color.fromARGB(248, 32, 2, 97);
+          return const Color(0xA1FF0426);
         } else {
-          return const Color(0xFFD32F2F); // Merah → Past
+          return const Color(0xFFD32F2F);
         }
       } catch (_) {
         continue;
@@ -411,14 +400,6 @@ class _TeacherPageState extends State<TeacherPage> {
     List<Map<String, dynamic>> classes,
     String type,
   ) {
-    final uniqueSessions = <String, Map<String, dynamic>>{};
-    for (var cls in classes) {
-      final key = "${cls['session_id']}_${cls['courseDate']}";
-      if (!uniqueSessions.containsKey(key)) {
-        uniqueSessions[key] = cls;
-      }
-    }
-
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
@@ -430,7 +411,7 @@ class _TeacherPageState extends State<TeacherPage> {
           ),
           const SizedBox(height: 8),
           Column(
-            children: uniqueSessions.values.map((session) {
+            children: classes.map((classItem) {
               return Container(
                 margin: const EdgeInsets.only(bottom: 12),
                 padding: const EdgeInsets.all(16),
@@ -457,7 +438,7 @@ class _TeacherPageState extends State<TeacherPage> {
                         const Icon(Icons.class_, color: Colors.white),
                         const SizedBox(width: 6),
                         Text(
-                          "${session['courseName']} - ${teacherData?['data']?['teacherName'] ?? ''}",
+                          "${classItem['courseName']} - ${classItem['teacherName']}",
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
@@ -468,96 +449,53 @@ class _TeacherPageState extends State<TeacherPage> {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      "${session['courseDate']} (${session['startTime']} - ${session['endTime']})\nRoom: ${session['room']}",
+                      "${classItem['courseDate']} (${classItem['startTime']} - ${classItem['endTime']})\nRoom: ${classItem['room']}",
                       style: const TextStyle(color: Colors.white70),
                     ),
-                    const SizedBox(height: 12),
-                    Align(
-                      alignment: Alignment.bottomRight,
-                      child: ElevatedButton.icon(
-                        onPressed: () => _showStudentSelection(
-                          session['session_id'],
-                          session['courseName'],
-                          session['courseDate'],
-                          session['room'],
-                          session['startTime'],
-                          session['endTime'],
-                        ),
-                        icon: const Icon(Icons.person_add),
-                        label: const Text('Select Student'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: Colors.deepPurple,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 10,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                    if (type == "past") const SizedBox(height: 12),
+                    if (type == "past")
+                      Align(
+                        alignment: Alignment.bottomRight,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            showDialog(
+                              context: context,
+                              builder: (_) => ReportDetailPopup(
+                                studentName:
+                                    studentData?['data']?['studentName'] ??
+                                    'N/A',
+                                title: classItem['title'] ?? 'No report',
+                                course: classItem['courseName'] ?? '-',
+                                meetingNumber: 1,
+                                description:
+                                    classItem['description'] ??
+                                    'No report available',
+                                imageUrl: classItem['picture'] ?? '',
+                                time:
+                                    "${classItem['startTime']} - ${classItem['endTime']}",
+                                place: classItem['room'] ?? '-',
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.visibility),
+                          label: const Text("View Report"),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: Colors.green,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
                         ),
                       ),
-                    ),
                   ],
                 ),
               );
             }).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showStudentSelection(
-    String sessionId,
-    String courseName,
-    String courseDate,
-    String room,
-    String startTime,
-    String endTime,
-  ) {
-    final studentsInSession = _schedules
-        .where(
-          (s) => s['session_id'] == sessionId && s['courseDate'] == courseDate,
-        )
-        .toList();
-    if (studentsInSession.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No students enrolled in this session')),
-      );
-      return;
-    }
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Select Student'),
-        content: SizedBox(
-          width: 300,
-          height: 300,
-          child: ListView.builder(
-            itemCount: studentsInSession.length,
-            itemBuilder: (context, index) {
-              final student = studentsInSession[index];
-              final hasReport = student['hasReport'] == '1';
-              return ListTile(
-                title: Text(student['studentName']),
-                subtitle: Text(hasReport ? '✅ Report exists' : 'No report'),
-                trailing: Icon(
-                  hasReport ? Icons.visibility : Icons.edit_note,
-                  color: hasReport ? Colors.green : Colors.orange,
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  _openReportPopup(student, readOnly: hasReport);
-                },
-              );
-            },
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: Navigator.of(context).pop,
-            child: const Text('Cancel'),
           ),
         ],
       ),

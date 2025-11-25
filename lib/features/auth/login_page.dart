@@ -36,10 +36,22 @@ class _LoginPageState extends State<LoginPage> {
             AppRoutes.teacher,
             arguments: {'id': id},
           );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Only teachers can access this app')),
+        } else if (role == 'student') {
+          Navigator.pushReplacementNamed(
+            context,
+            AppRoutes.student,
+            arguments: {'id': id},
           );
+        } else if (role == 'admin') {
+          Navigator.pushReplacementNamed(
+            context,
+            AppRoutes.admin,
+            arguments: {'id': id},
+          );
+        } else {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Unknown role')));
         }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
