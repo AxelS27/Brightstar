@@ -3,8 +3,6 @@ import 'manage_students_page.dart';
 import 'manage_teachers_page.dart';
 import 'manage_courses_page.dart';
 import 'manage_sessions_page.dart';
-import 'admin_reports_page.dart';
-import 'admin_information_page.dart';
 import 'manage_rooms_page.dart';
 
 class ManagementHub extends StatelessWidget {
@@ -57,24 +55,6 @@ class ManagementHub extends StatelessWidget {
               () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const ManageSessionsPage()),
-              ),
-            ),
-            _buildMenuCard(
-              "View Reports",
-              Icons.receipt_long,
-              () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const AdminReportsPage()),
-              ),
-            ),
-            _buildMenuCard(
-              "Admin Profile",
-              Icons.person,
-              () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => AdminInformationPage(adminId: adminId),
-                ),
               ),
             ),
           ],

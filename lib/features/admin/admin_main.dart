@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'admin_dashboard.dart';
 import 'management_hub.dart';
+import 'admin_reports_page.dart';
 
 class AdminMain extends StatefulWidget {
   final String adminId;
@@ -13,13 +14,20 @@ class AdminMain extends StatefulWidget {
 class _AdminMainState extends State<AdminMain> {
   int _selectedIndex = 0;
 
+  final List<Widget> _pages = [];
+
   @override
-  Widget build(BuildContext context) {
-    final List<Widget> _pages = [
+  void initState() {
+    super.initState();
+    _pages.addAll([
       AdminDashboard(adminId: widget.adminId),
       ManagementHub(adminId: widget.adminId),
-    ];
+      const AdminReportsPage(),
+    ]);
+  }
 
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       body: _pages[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
@@ -34,6 +42,10 @@ class _AdminMainState extends State<AdminMain> {
           BottomNavigationBarItem(
             icon: Icon(Icons.settings),
             label: 'Management',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.receipt_long),
+            label: 'Reports',
           ),
         ],
       ),

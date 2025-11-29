@@ -17,10 +17,12 @@ class _ManageSessionsPageState extends State<ManageSessionsPage> {
   String? _selectedTeacher;
   String? _selectedRoom;
   String? _selectedTimeSlot;
+  List<String> _selectedStudents = [];
   List<Map<String, dynamic>> _sessions = [];
   List<Map<String, dynamic>> _courses = [];
   List<Map<String, dynamic>> _teachers = [];
   List<Map<String, dynamic>> _rooms = [];
+  List<Map<String, dynamic>> _allStudents = [];
   bool _isLoading = true;
 
   List<String> get _timeSlots {
@@ -41,6 +43,7 @@ class _ManageSessionsPageState extends State<ManageSessionsPage> {
     _loadCourses();
     _loadTeachers();
     _loadRooms();
+    _loadAllStudents();
   }
 
   Future<void> _loadSessions() async {
@@ -103,6 +106,21 @@ class _ManageSessionsPageState extends State<ManageSessionsPage> {
         if (data['status'] == 'success') {
           setState(() {
             _rooms = List<Map<String, dynamic>>.from(data['data']);
+          });
+        }
+      }
+    } catch (e) {}
+  }
+
+  Future<void> _loadAllStudents() async {
+    try {
+      final url = Uri.parse("${ApiConfig.baseUrl}/get_all_students.php");
+      final res = await http.get(url);
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['status'] == 'success') {
+          setState(() {
+            _allStudents = List<Map<String, dynamic>>.from(data['data']);
           });
         }
       }
@@ -177,10 +195,25 @@ class _ManageSessionsPageState extends State<ManageSessionsPage> {
       );
       final data = jsonDecode(response.body);
       if (data['status'] == 'success') {
+        final sessionId = data['id'];
+        for (var studentId in _selectedStudents) {
+          final enrollUrl = Uri.parse(
+            "${ApiConfig.baseUrl}/enroll_student.php",
+          );
+          await http.post(
+            enrollUrl,
+            headers: {"Content-Type": "application/json"},
+            body: jsonEncode({
+              'student_id': studentId,
+              'session_id': sessionId,
+            }),
+          );
+        }
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text("Session created")));
         _dateController.clear();
+        _selectedStudents.clear();
         _selectedTimeSlot = null;
         _loadSessions();
       } else {
@@ -196,146 +229,237 @@ class _ManageSessionsPageState extends State<ManageSessionsPage> {
   }
 
   Future<void> _editSession(Map<String, dynamic> session) async {
-    _dateController.text = session['courseDate'];
-    _selectedCourse = session['course_type_id'];
-    _selectedTeacher = session['teacher_id'];
-    _selectedRoom = session['room'];
+    if (_teachers.isEmpty) {
+      await _loadTeachers();
+    }
+    if (_allStudents.isEmpty) {
+      await _loadAllStudents();
+    }
+
+    final dateController = TextEditingController(text: session['courseDate']);
+    String? selectedCourse = session['course_type_id'];
+    String? selectedTeacher = session['teacher_id'];
+    String? selectedRoom = session['room'];
     final timeSlot = '${session['startTime']}-${session['endTime']}';
-    _selectedTimeSlot = _timeSlots.contains(timeSlot)
+    String? selectedTimeSlot = _timeSlots.contains(timeSlot)
         ? timeSlot
         : 'Custom Time';
+    List<String> selectedStudents = await _fetchEnrolledStudentIds(
+      session['session_id'],
+    );
 
     await showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Edit Session"),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DropdownButtonFormField<String>(
-                value: _selectedCourse,
-                items: _courses
-                    .map(
-                      (c) => DropdownMenuItem<String>(
-                        value: c['id'] as String,
-                        child: Text(c['name'] as String),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (v) => setState(() => _selectedCourse = v!),
-                decoration: const InputDecoration(labelText: "Course"),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: const Text("Edit Session"),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DropdownButtonFormField<String>(
+                    value: selectedCourse,
+                    items: _courses
+                        .map(
+                          (c) => DropdownMenuItem<String>(
+                            value: c['id'] as String,
+                            child: Text(c['name'] as String),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (v) => setState(() => selectedCourse = v!),
+                    decoration: const InputDecoration(labelText: "Course"),
+                  ),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<String>(
+                    value: selectedTeacher,
+                    items: _teachers
+                        .map(
+                          (t) => DropdownMenuItem<String>(
+                            value: t['id'] as String,
+                            child: Text(t['full_name'] as String),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (v) => setState(() => selectedTeacher = v!),
+                    decoration: const InputDecoration(labelText: "Teacher"),
+                  ),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<String>(
+                    value: selectedRoom,
+                    items: _rooms
+                        .map(
+                          (r) => DropdownMenuItem<String>(
+                            value: r['name'],
+                            child: Text(r['name']),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (v) => setState(() => selectedRoom = v!),
+                    decoration: const InputDecoration(labelText: "Room"),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: dateController,
+                    decoration: const InputDecoration(
+                      labelText: "Date (YYYY-MM-DD)",
+                    ),
+                    readOnly: true,
+                    onTap: () => _pickDateInDialog(dateController),
+                  ),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<String>(
+                    value: selectedTimeSlot,
+                    items: _timeSlots
+                        .map(
+                          (slot) => DropdownMenuItem<String>(
+                            value: slot,
+                            child: Text(slot),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (v) => setState(() => selectedTimeSlot = v!),
+                    decoration: const InputDecoration(labelText: "Time Slot"),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    "Select Students",
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    children: _allStudents.map((student) {
+                      final isSelected = selectedStudents.contains(
+                        student['id'],
+                      );
+                      return ChoiceChip(
+                        label: Text(student['full_name']),
+                        selected: isSelected,
+                        onSelected: (selected) {
+                          setState(() {
+                            if (selected) {
+                              selectedStudents.add(student['id']);
+                            } else {
+                              selectedStudents.remove(student['id']);
+                            }
+                          });
+                        },
+                      );
+                    }).toList(),
+                  ),
+                ],
               ),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                value: _selectedTeacher,
-                items: _teachers
-                    .map(
-                      (t) => DropdownMenuItem<String>(
-                        value: t['id'] as String,
-                        child: Text(t['full_name'] as String),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (v) => setState(() => _selectedTeacher = v!),
-                decoration: const InputDecoration(labelText: "Teacher"),
+            ),
+            actions: [
+              TextButton(
+                onPressed: Navigator.of(context).pop,
+                child: const Text("Cancel"),
               ),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                value: _selectedRoom,
-                items: _rooms
-                    .map(
-                      (r) => DropdownMenuItem<String>(
-                        value: r['name'],
-                        child: Text(r['name']),
+              ElevatedButton(
+                onPressed: () async {
+                  if (selectedCourse == null ||
+                      selectedTeacher == null ||
+                      selectedRoom == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          "Please select a course, teacher, and room",
+                        ),
                       ),
-                    )
-                    .toList(),
-                onChanged: (v) => setState(() => _selectedRoom = v!),
-                decoration: const InputDecoration(labelText: "Room"),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _dateController,
-                decoration: const InputDecoration(
-                  labelText: "Date (YYYY-MM-DD)",
-                ),
-                readOnly: true,
-                onTap: _pickDate,
-              ),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                value: _selectedTimeSlot,
-                items: _timeSlots
-                    .map(
-                      (slot) => DropdownMenuItem<String>(
-                        value: slot,
-                        child: Text(slot),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (v) => setState(() => _selectedTimeSlot = v!),
-                decoration: const InputDecoration(labelText: "Time Slot"),
+                    );
+                    return;
+                  }
+                  String? startTime, endTime;
+                  if (selectedTimeSlot == 'Custom Time') {
+                    startTime = '09:00';
+                    endTime = '10:00';
+                  } else if (selectedTimeSlot != null) {
+                    final parts = selectedTimeSlot!.split('-');
+                    if (parts.length == 2) {
+                      startTime = parts[0];
+                      endTime = parts[1];
+                    }
+                  }
+                  if (startTime == null || endTime == null) return;
+                  final url = Uri.parse(
+                    "${ApiConfig.baseUrl}/update_session.php",
+                  );
+                  try {
+                    final res = await http.post(
+                      url,
+                      headers: {"Content-Type": "application/json"},
+                      body: jsonEncode({
+                        'id': session['session_id'],
+                        'course_type_id': selectedCourse,
+                        'teacher_id': selectedTeacher,
+                        'session_date': dateController.text,
+                        'start_time': startTime,
+                        'end_time': endTime,
+                        'location': selectedRoom,
+                      }),
+                    );
+                    final data = jsonDecode(res.body);
+                    if (data['status'] == 'success') {
+                      final deleteUrl = Uri.parse(
+                        "${ApiConfig.baseUrl}/delete_session_enrollments.php?session_id=${session['session_id']}",
+                      );
+                      await http.get(deleteUrl);
+                      for (var studentId in selectedStudents) {
+                        final enrollUrl = Uri.parse(
+                          "${ApiConfig.baseUrl}/enroll_student.php",
+                        );
+                        await http.post(
+                          enrollUrl,
+                          headers: {"Content-Type": "application/json"},
+                          body: jsonEncode({
+                            'student_id': studentId,
+                            'session_id': session['session_id'],
+                          }),
+                        );
+                      }
+                      _loadSessions();
+                      Navigator.pop(context);
+                    }
+                  } catch (e) {}
+                },
+                child: const Text("Save"),
               ),
             ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: Navigator.of(context).pop,
-            child: const Text("Cancel"),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (_selectedCourse == null ||
-                  _selectedTeacher == null ||
-                  _selectedRoom == null) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text("Please select a course, teacher, and room"),
-                  ),
-                );
-                return;
-              }
-              String? startTime, endTime;
-              if (_selectedTimeSlot == 'Custom Time') {
-                startTime = '09:00';
-                endTime = '10:00';
-              } else if (_selectedTimeSlot != null) {
-                final parts = _selectedTimeSlot!.split('-');
-                if (parts.length == 2) {
-                  startTime = parts[0];
-                  endTime = parts[1];
-                }
-              }
-              if (startTime == null || endTime == null) return;
-              final url = Uri.parse("${ApiConfig.baseUrl}/update_session.php");
-              try {
-                final res = await http.post(
-                  url,
-                  headers: {"Content-Type": "application/json"},
-                  body: jsonEncode({
-                    'id': session['session_id'],
-                    'course_type_id': _selectedCourse,
-                    'teacher_id': _selectedTeacher,
-                    'session_date': _dateController.text,
-                    'start_time': startTime,
-                    'end_time': endTime,
-                    'location': _selectedRoom,
-                  }),
-                );
-                final data = jsonDecode(res.body);
-                if (data['status'] == 'success') {
-                  _loadSessions();
-                  Navigator.pop(context);
-                }
-              } catch (e) {}
-            },
-            child: const Text("Save"),
-          ),
-        ],
+          );
+        },
       ),
     );
+  }
+
+  Future<List<String>> _fetchEnrolledStudentIds(String sessionId) async {
+    try {
+      final url = Uri.parse(
+        "${ApiConfig.baseUrl}/get_enrolled_students.php?session_id=$sessionId",
+      );
+      final res = await http.get(url);
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['status'] == 'success') {
+          return List<String>.from(data['data'].map((e) => e['student_id']));
+        }
+      }
+    } catch (e) {}
+    return [];
+  }
+
+  Future<void> _pickDateInDialog(TextEditingController controller) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2030),
+    );
+    if (picked != null) {
+      controller.text =
+          "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
+    }
   }
 
   Future<void> _deleteSession(String id) async {
@@ -462,6 +586,33 @@ class _ManageSessionsPageState extends State<ManageSessionsPage> {
                             decoration: const InputDecoration(
                               labelText: "Time Slot",
                             ),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            "Select Students",
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            children: _allStudents.map((student) {
+                              final isSelected = _selectedStudents.contains(
+                                student['id'],
+                              );
+                              return ChoiceChip(
+                                label: Text(student['full_name']),
+                                selected: isSelected,
+                                onSelected: (selected) {
+                                  setState(() {
+                                    if (selected) {
+                                      _selectedStudents.add(student['id']);
+                                    } else {
+                                      _selectedStudents.remove(student['id']);
+                                    }
+                                  });
+                                },
+                              );
+                            }).toList(),
                           ),
                           const SizedBox(height: 12),
                           ElevatedButton(

@@ -15,6 +15,7 @@ class StudentViewReportPage extends StatefulWidget {
 }
 
 class _StudentViewReportPageState extends State<StudentViewReportPage> {
+  DateTime? startDate, endDate;
   Map<String, dynamic>? studentData;
   bool _isLoading = true;
   List<Map<String, dynamic>> reports = [];
@@ -47,11 +48,18 @@ class _StudentViewReportPageState extends State<StudentViewReportPage> {
   }
 
   Future<void> _loadReports() async {
-    final url = Uri.parse(
-      "${ApiConfig.baseUrl}/get_student_reports.php?studentId=${widget.studentId}",
-    );
+    String url =
+        "${ApiConfig.baseUrl}/get_student_reports.php?studentId=${widget.studentId}";
+    if (startDate != null) {
+      url +=
+          "&start_date=${startDate!.year}-${startDate!.month.toString().padLeft(2, '0')}-${startDate!.day.toString().padLeft(2, '0')}";
+    }
+    if (endDate != null) {
+      url +=
+          "&end_date=${endDate!.year}-${endDate!.month.toString().padLeft(2, '0')}-${endDate!.day.toString().padLeft(2, '0')}";
+    }
     try {
-      final res = await http.get(url);
+      final res = await http.get(Uri.parse(url));
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body);
         if (body['status'] == 'success') {
@@ -63,6 +71,25 @@ class _StudentViewReportPageState extends State<StudentViewReportPage> {
       }
     } catch (e) {
       setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _selectDate(bool isStart) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2030),
+    );
+    if (picked != null) {
+      setState(() {
+        if (isStart) {
+          startDate = picked;
+        } else {
+          endDate = picked;
+        }
+        _loadReports();
+      });
     }
   }
 
@@ -102,6 +129,39 @@ class _StudentViewReportPageState extends State<StudentViewReportPage> {
       body: SafeArea(
         child: Column(
           children: [
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Card(
+                      child: ListTile(
+                        leading: const Icon(Icons.date_range),
+                        title: const Text('Start Date'),
+                        subtitle: Text(
+                          startDate?.toIso8601String().split('T')[0] ??
+                              'Not set',
+                        ),
+                        onTap: () => _selectDate(true),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Card(
+                      child: ListTile(
+                        leading: const Icon(Icons.date_range),
+                        title: const Text('End Date'),
+                        subtitle: Text(
+                          endDate?.toIso8601String().split('T')[0] ?? 'Not set',
+                        ),
+                        onTap: () => _selectDate(false),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
             Expanded(
               child: reports.isEmpty
                   ? const Center(
