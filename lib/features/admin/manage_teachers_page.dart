@@ -142,15 +142,12 @@ class _ManageTeachersPageState extends State<ManageTeachersPage> {
   }
 
   Future<void> _editTeacher(Map<String, dynamic> teacher) async {
-    // Tunggu sampai _allCourses siap
     if (_allCourses.isEmpty) {
       await _loadAllCourses();
     }
 
-    // Ambil course yang sudah diajarkan oleh guru ini
     final localSelectedCourses = await _fetchAssignedCourseIds(teacher['id']);
 
-    // Buat controller lokal
     final nameController = TextEditingController(text: teacher['full_name']);
     final dobController = TextEditingController(text: teacher['date_of_birth']);
     final phoneController = TextEditingController(text: teacher['phone'] ?? '');
@@ -271,7 +268,6 @@ class _ManageTeachersPageState extends State<ManageTeachersPage> {
     );
   }
 
-  // Fungsi baru: ambil course IDs yang sudah diajarkan
   Future<List<String>> _fetchAssignedCourseIds(String teacherId) async {
     try {
       final url = Uri.parse(
@@ -286,9 +282,7 @@ class _ManageTeachersPageState extends State<ManageTeachersPage> {
           );
         }
       }
-    } catch (e) {
-      // ignore
-    }
+    } catch (e) {}
     return [];
   }
 

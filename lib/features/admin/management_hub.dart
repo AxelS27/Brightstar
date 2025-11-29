@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
-import 'admin_information_page.dart';
 import 'manage_students_page.dart';
 import 'manage_teachers_page.dart';
 import 'manage_courses_page.dart';
-import 'admin_reports_page.dart';
 import 'manage_sessions_page.dart';
+import 'admin_reports_page.dart';
+import 'admin_information_page.dart';
+import 'manage_rooms_page.dart';
 
 class ManagementHub extends StatelessWidget {
-  final String adminId; // ✅ Tambahkan ini
-  const ManagementHub({super.key, required this.adminId}); // ✅ Tambahkan ini
+  final String adminId;
+  const ManagementHub({super.key, required this.adminId});
 
   @override
   Widget build(BuildContext context) {
@@ -40,6 +41,14 @@ class ManagementHub extends StatelessWidget {
               () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const ManageCoursesPage()),
+              ),
+            ),
+            _buildMenuCard(
+              "Manage Rooms",
+              Icons.meeting_room,
+              () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ManageRoomsPage()),
               ),
             ),
             _buildMenuCard(

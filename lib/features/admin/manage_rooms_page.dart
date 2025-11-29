@@ -3,94 +3,71 @@ import '../../../core/config/api_config.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
-class ManageCoursesPage extends StatefulWidget {
-  const ManageCoursesPage({super.key});
+class ManageRoomsPage extends StatefulWidget {
+  const ManageRoomsPage({super.key});
 
   @override
-  State<ManageCoursesPage> createState() => _ManageCoursesPageState();
+  State<ManageRoomsPage> createState() => _ManageRoomsPageState();
 }
 
-class _ManageCoursesPageState extends State<ManageCoursesPage> {
-  final TextEditingController _idController = TextEditingController();
+class _ManageRoomsPageState extends State<ManageRoomsPage> {
   final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _descriptionController = TextEditingController();
-  List<Map<String, dynamic>> _courses = [];
+  final TextEditingController _capacityController = TextEditingController();
+  List<Map<String, dynamic>> _rooms = [];
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadCourses();
+    _loadRooms();
   }
 
-  Future<void> _loadCourses() async {
+  Future<void> _loadRooms() async {
     try {
-      final url = Uri.parse("${ApiConfig.baseUrl}/get_all_courses.php");
+      final url = Uri.parse("${ApiConfig.baseUrl}/get_all_rooms.php");
       final res = await http.get(url);
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         if (data['status'] == 'success') {
           setState(() {
-            _courses = List<Map<String, dynamic>>.from(data['data']);
+            _rooms = List<Map<String, dynamic>>.from(data['data']);
             _isLoading = false;
           });
         }
       }
     } catch (e) {
       setState(() {
-        _courses = [];
+        _rooms = [];
         _isLoading = false;
       });
     }
   }
 
-  Future<void> _createCourse() async {
-    if (_idController.text.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Course ID is required")));
-      return;
-    }
-
+  Future<void> _createRoom() async {
     if (_nameController.text.isEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text("Course name is required")));
+      ).showSnackBar(const SnackBar(content: Text("Room name is required")));
       return;
     }
-
-    if (!_isValidCourseId(_idController.text)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            "ID must be 2 letters followed by 3 digits (e.g., CO001)",
-          ),
-        ),
-      );
-      return;
-    }
-
-    final url = Uri.parse("${ApiConfig.baseUrl}/create_course.php");
+    final url = Uri.parse("${ApiConfig.baseUrl}/create_room.php");
     try {
       final response = await http.post(
         url,
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
-          'id': _idController.text.toUpperCase(),
           'name': _nameController.text,
-          'description': _descriptionController.text,
-          'created_by': 'ADM001',
+          'capacity': int.tryParse(_capacityController.text) ?? 0,
         }),
       );
       final data = jsonDecode(response.body);
       if (data['status'] == 'success') {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text("Course created")));
-        _idController.clear();
+        ).showSnackBar(const SnackBar(content: Text("Room created")));
         _nameController.clear();
-        _descriptionController.clear();
-        _loadCourses();
+        _capacityController.clear();
+        _loadRooms();
       } else {
         ScaffoldMessenger.of(
           context,
@@ -103,45 +80,25 @@ class _ManageCoursesPageState extends State<ManageCoursesPage> {
     }
   }
 
-  bool _isValidCourseId(String id) {
-    if (id.length != 5) return false;
-    final firstTwo = id.substring(0, 2);
-    final lastThree = id.substring(2, 5);
-    return firstTwo.isNotEmpty &&
-        lastThree.isNotEmpty &&
-        firstTwo.contains(RegExp(r'^[a-zA-Z]+$')) &&
-        lastThree.contains(RegExp(r'^[0-9]+$'));
-  }
-
-  Future<void> _editCourse(Map<String, dynamic> course) async {
-    _idController.text = course['id'];
-    _nameController.text = course['name'];
-    _descriptionController.text = course['description'] ?? '';
-
+  Future<void> _editRoom(Map<String, dynamic> room) async {
+    _nameController.text = room['name'];
+    _capacityController.text = room['capacity'].toString();
     await showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("Edit Course"),
+        title: const Text("Edit Room"),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
-              controller: _idController,
-              decoration: const InputDecoration(
-                labelText: "Course ID (2 letters + 3 digits)",
-              ),
-              enabled: false,
-            ),
-            const SizedBox(height: 8),
-            TextField(
               controller: _nameController,
-              decoration: const InputDecoration(labelText: "Course Name"),
+              decoration: const InputDecoration(labelText: "Room Name"),
             ),
             const SizedBox(height: 8),
             TextField(
-              controller: _descriptionController,
-              decoration: const InputDecoration(labelText: "Description"),
-              maxLines: 3,
+              controller: _capacityController,
+              decoration: const InputDecoration(labelText: "Capacity"),
+              keyboardType: TextInputType.number,
             ),
           ],
         ),
@@ -152,20 +109,20 @@ class _ManageCoursesPageState extends State<ManageCoursesPage> {
           ),
           ElevatedButton(
             onPressed: () async {
-              final url = Uri.parse("${ApiConfig.baseUrl}/update_course.php");
+              final url = Uri.parse("${ApiConfig.baseUrl}/update_room.php");
               try {
                 final res = await http.post(
                   url,
                   headers: {"Content-Type": "application/json"},
                   body: jsonEncode({
-                    'id': course['id'],
+                    'id': room['id'],
                     'name': _nameController.text,
-                    'description': _descriptionController.text,
+                    'capacity': int.tryParse(_capacityController.text) ?? 0,
                   }),
                 );
                 final data = jsonDecode(res.body);
                 if (data['status'] == 'success') {
-                  _loadCourses();
+                  _loadRooms();
                   Navigator.pop(context);
                 }
               } catch (e) {}
@@ -177,12 +134,12 @@ class _ManageCoursesPageState extends State<ManageCoursesPage> {
     );
   }
 
-  Future<void> _deleteCourse(String id) async {
+  Future<void> _deleteRoom(String id) async {
     bool confirm =
         await showDialog(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text("Delete Course"),
+            title: const Text("Delete Room"),
             content: const Text("Are you sure?"),
             actions: [
               TextButton(
@@ -198,14 +155,14 @@ class _ManageCoursesPageState extends State<ManageCoursesPage> {
         ) ??
         false;
     if (confirm) {
-      final url = Uri.parse("${ApiConfig.baseUrl}/delete_course.php");
+      final url = Uri.parse("${ApiConfig.baseUrl}/delete_room.php");
       try {
         await http.post(
           url,
           headers: {"Content-Type": "application/json"},
           body: jsonEncode({'id': id}),
         );
-        _loadCourses();
+        _loadRooms();
       } catch (e) {}
     }
   }
@@ -213,11 +170,11 @@ class _ManageCoursesPageState extends State<ManageCoursesPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Manage Courses")),
+      appBar: AppBar(title: const Text("Manage Rooms")),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : ListView.builder(
-              itemCount: _courses.length + 1,
+              itemCount: _rooms.length + 1,
               itemBuilder: (context, index) {
                 if (index == 0) {
                   return Card(
@@ -227,51 +184,43 @@ class _ManageCoursesPageState extends State<ManageCoursesPage> {
                       child: Column(
                         children: [
                           TextField(
-                            controller: _idController,
-                            decoration: const InputDecoration(
-                              labelText: "Course ID (e.g., CO001)",
-                              hintText: "2 letters + 3 digits",
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          TextField(
                             controller: _nameController,
                             decoration: const InputDecoration(
-                              labelText: "Course Name",
+                              labelText: "Room Name",
                             ),
                           ),
                           const SizedBox(height: 8),
                           TextField(
-                            controller: _descriptionController,
+                            controller: _capacityController,
                             decoration: const InputDecoration(
-                              labelText: "Description",
+                              labelText: "Capacity",
                             ),
-                            maxLines: 3,
+                            keyboardType: TextInputType.number,
                           ),
                           const SizedBox(height: 12),
                           ElevatedButton(
-                            onPressed: _createCourse,
-                            child: const Text("Create Course"),
+                            onPressed: _createRoom,
+                            child: const Text("Create Room"),
                           ),
                         ],
                       ),
                     ),
                   );
                 }
-                final course = _courses[index - 1];
+                final room = _rooms[index - 1];
                 return ListTile(
-                  title: Text(course['name']),
-                  subtitle: Text(course['description'] ?? 'No description'),
+                  title: Text(room['name']),
+                  subtitle: Text("Capacity: ${room['capacity']}"),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       IconButton(
                         icon: const Icon(Icons.edit),
-                        onPressed: () => _editCourse(course),
+                        onPressed: () => _editRoom(room),
                       ),
                       IconButton(
                         icon: const Icon(Icons.delete),
-                        onPressed: () => _deleteCourse(course['id']),
+                        onPressed: () => _deleteRoom(room['id']),
                       ),
                     ],
                   ),

@@ -141,10 +141,8 @@ class _ManageStudentsPageState extends State<ManageStudentsPage> {
   }
 
   Future<void> _editStudent(Map<String, dynamic> student) async {
-    // Muat daftar course yang sudah diambil oleh student
     final localSelectedCourses = await _fetchEnrolledCourseIds(student['id']);
 
-    // Buat controller lokal
     final nameController = TextEditingController(text: student['full_name']);
     final dobController = TextEditingController(text: student['date_of_birth']);
     final phoneController = TextEditingController(text: student['phone'] ?? '');
@@ -277,9 +275,7 @@ class _ManageStudentsPageState extends State<ManageStudentsPage> {
           );
         }
       }
-    } catch (e) {
-      // ignore
-    }
+    } catch (e) {}
     return [];
   }
 
@@ -287,13 +283,11 @@ class _ManageStudentsPageState extends State<ManageStudentsPage> {
     String studentId,
     List<String> selectedCourses,
   ) async {
-    // First, delete all existing assignments for this student
     final deleteUrl = Uri.parse(
       "${ApiConfig.baseUrl}/delete_student_courses.php?student_id=$studentId",
     );
     await http.get(deleteUrl);
 
-    // Then, assign the new ones
     for (var courseId in selectedCourses) {
       final enrollUrl = Uri.parse(
         "${ApiConfig.baseUrl}/assign_student_to_course.php",

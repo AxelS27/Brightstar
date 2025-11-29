@@ -15,10 +15,12 @@ class _ManageSessionsPageState extends State<ManageSessionsPage> {
   final TextEditingController _locationController = TextEditingController();
   String? _selectedCourse;
   String? _selectedTeacher;
+  String? _selectedRoom;
   String? _selectedTimeSlot;
   List<Map<String, dynamic>> _sessions = [];
   List<Map<String, dynamic>> _courses = [];
-  List<String> _compatibleTeachers = [];
+  List<Map<String, dynamic>> _teachers = [];
+  List<Map<String, dynamic>> _rooms = [];
   bool _isLoading = true;
 
   List<String> get _timeSlots {
@@ -37,6 +39,8 @@ class _ManageSessionsPageState extends State<ManageSessionsPage> {
     super.initState();
     _loadSessions();
     _loadCourses();
+    _loadTeachers();
+    _loadRooms();
   }
 
   Future<void> _loadSessions() async {
@@ -69,30 +73,36 @@ class _ManageSessionsPageState extends State<ManageSessionsPage> {
         if (data['status'] == 'success') {
           setState(() {
             _courses = List<Map<String, dynamic>>.from(data['data']);
-            if (_courses.isNotEmpty && _selectedCourse == null) {
-              _selectedCourse = _courses[0]['id'] as String;
-              _loadCompatibleTeachers(_selectedCourse!);
-            }
           });
         }
       }
     } catch (e) {}
   }
 
-  Future<void> _loadCompatibleTeachers(String courseId) async {
+  Future<void> _loadTeachers() async {
     try {
-      final url = Uri.parse(
-        "${ApiConfig.baseUrl}/get_compatible_teachers.php?course_type_id=$courseId",
-      );
+      final url = Uri.parse("${ApiConfig.baseUrl}/get_all_teachers.php");
       final res = await http.get(url);
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         if (data['status'] == 'success') {
           setState(() {
-            _compatibleTeachers = data['data'].map((t) => t['id']).toList();
-            if (_compatibleTeachers.isNotEmpty && _selectedTeacher == null) {
-              _selectedTeacher = _compatibleTeachers[0];
-            }
+            _teachers = List<Map<String, dynamic>>.from(data['data']);
+          });
+        }
+      }
+    } catch (e) {}
+  }
+
+  Future<void> _loadRooms() async {
+    try {
+      final url = Uri.parse("${ApiConfig.baseUrl}/get_all_rooms.php");
+      final res = await http.get(url);
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['status'] == 'success') {
+          setState(() {
+            _rooms = List<Map<String, dynamic>>.from(data['data']);
           });
         }
       }
@@ -121,23 +131,21 @@ class _ManageSessionsPageState extends State<ManageSessionsPage> {
       ).showSnackBar(const SnackBar(content: Text("Please select a date")));
       return;
     }
-    if (_selectedCourse == null || _selectedTeacher == null) {
+    if (_selectedCourse == null ||
+        _selectedTeacher == null ||
+        _selectedRoom == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please select a course and a teacher")),
+        const SnackBar(
+          content: Text("Please select a course, teacher, and room"),
+        ),
       );
       return;
     }
 
     String? startTime, endTime;
     if (_selectedTimeSlot == 'Custom Time') {
-      final customStart = _timeSlots.length > 0
-          ? _timeSlots[0].split('-')[0]
-          : '09:00';
-      final customEnd = _timeSlots.length > 0
-          ? _timeSlots[0].split('-')[1]
-          : '10:00';
-      startTime = customStart;
-      endTime = customEnd;
+      startTime = '09:00';
+      endTime = '10:00';
     } else if (_selectedTimeSlot != null) {
       final parts = _selectedTimeSlot!.split('-');
       if (parts.length == 2) {
@@ -153,15 +161,6 @@ class _ManageSessionsPageState extends State<ManageSessionsPage> {
       return;
     }
 
-    if (!_compatibleTeachers.contains(_selectedTeacher)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Selected teacher is not assigned to this course"),
-        ),
-      );
-      return;
-    }
-
     final url = Uri.parse("${ApiConfig.baseUrl}/create_session.php");
     try {
       final response = await http.post(
@@ -173,7 +172,7 @@ class _ManageSessionsPageState extends State<ManageSessionsPage> {
           'session_date': _dateController.text,
           'start_time': startTime,
           'end_time': endTime,
-          'location': _locationController.text,
+          'location': _selectedRoom,
         }),
       );
       final data = jsonDecode(response.body);
@@ -182,7 +181,6 @@ class _ManageSessionsPageState extends State<ManageSessionsPage> {
           context,
         ).showSnackBar(const SnackBar(content: Text("Session created")));
         _dateController.clear();
-        _locationController.clear();
         _selectedTimeSlot = null;
         _loadSessions();
       } else {
@@ -199,17 +197,13 @@ class _ManageSessionsPageState extends State<ManageSessionsPage> {
 
   Future<void> _editSession(Map<String, dynamic> session) async {
     _dateController.text = session['courseDate'];
-    _locationController.text = session['room'] ?? '';
     _selectedCourse = session['course_type_id'];
     _selectedTeacher = session['teacher_id'];
+    _selectedRoom = session['room'];
     final timeSlot = '${session['startTime']}-${session['endTime']}';
     _selectedTimeSlot = _timeSlots.contains(timeSlot)
         ? timeSlot
         : 'Custom Time';
-
-    if (_selectedCourse != null) {
-      _loadCompatibleTeachers(_selectedCourse!);
-    }
 
     await showDialog(
       context: context,
@@ -229,45 +223,45 @@ class _ManageSessionsPageState extends State<ManageSessionsPage> {
                       ),
                     )
                     .toList(),
-                onChanged: (v) {
-                  setState(() {
-                    _selectedCourse = v!;
-                    _loadCompatibleTeachers(v!);
-                  });
-                },
+                onChanged: (v) => setState(() => _selectedCourse = v!),
                 decoration: const InputDecoration(labelText: "Course"),
-                hint: _courses.isEmpty
-                    ? const Text('No courses available')
-                    : null,
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
                 value: _selectedTeacher,
-                items: _compatibleTeachers.map((tId) {
-                  final teacher = _teachers.firstWhere(
-                    (t) => t['id'] == tId,
-                    orElse: () => {'id': tId, 'full_name': tId},
-                  );
-                  return DropdownMenuItem<String>(
-                    value: tId,
-                    child: Text(teacher['full_name']),
-                  );
-                }).toList(),
+                items: _teachers
+                    .map(
+                      (t) => DropdownMenuItem<String>(
+                        value: t['id'] as String,
+                        child: Text(t['full_name'] as String),
+                      ),
+                    )
+                    .toList(),
                 onChanged: (v) => setState(() => _selectedTeacher = v!),
                 decoration: const InputDecoration(labelText: "Teacher"),
-                hint: _compatibleTeachers.isEmpty
-                    ? const Text('No compatible teachers')
-                    : null,
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                value: _selectedRoom,
+                items: _rooms
+                    .map(
+                      (r) => DropdownMenuItem<String>(
+                        value: r['name'],
+                        child: Text(r['name']),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (v) => setState(() => _selectedRoom = v!),
+                decoration: const InputDecoration(labelText: "Room"),
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: _dateController,
-                readOnly: true,
-                onTap: _pickDate,
                 decoration: const InputDecoration(
                   labelText: "Date (YYYY-MM-DD)",
-                  suffixIcon: Icon(Icons.calendar_today),
                 ),
+                readOnly: true,
+                onTap: _pickDate,
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
@@ -283,11 +277,6 @@ class _ManageSessionsPageState extends State<ManageSessionsPage> {
                 onChanged: (v) => setState(() => _selectedTimeSlot = v!),
                 decoration: const InputDecoration(labelText: "Time Slot"),
               ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _locationController,
-                decoration: const InputDecoration(labelText: "Location"),
-              ),
             ],
           ),
         ),
@@ -298,25 +287,20 @@ class _ManageSessionsPageState extends State<ManageSessionsPage> {
           ),
           ElevatedButton(
             onPressed: () async {
-              if (_selectedCourse == null || _selectedTeacher == null) {
+              if (_selectedCourse == null ||
+                  _selectedTeacher == null ||
+                  _selectedRoom == null) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text("Please select a course and a teacher"),
+                    content: Text("Please select a course, teacher, and room"),
                   ),
                 );
                 return;
               }
-
               String? startTime, endTime;
               if (_selectedTimeSlot == 'Custom Time') {
-                final customStart = _timeSlots.length > 0
-                    ? _timeSlots[0].split('-')[0]
-                    : '09:00';
-                final customEnd = _timeSlots.length > 0
-                    ? _timeSlots[0].split('-')[1]
-                    : '10:00';
-                startTime = customStart;
-                endTime = customEnd;
+                startTime = '09:00';
+                endTime = '10:00';
               } else if (_selectedTimeSlot != null) {
                 final parts = _selectedTimeSlot!.split('-');
                 if (parts.length == 2) {
@@ -324,9 +308,7 @@ class _ManageSessionsPageState extends State<ManageSessionsPage> {
                   endTime = parts[1];
                 }
               }
-
               if (startTime == null || endTime == null) return;
-
               final url = Uri.parse("${ApiConfig.baseUrl}/update_session.php");
               try {
                 final res = await http.post(
@@ -339,7 +321,7 @@ class _ManageSessionsPageState extends State<ManageSessionsPage> {
                     'session_date': _dateController.text,
                     'start_time': startTime,
                     'end_time': endTime,
-                    'location': _locationController.text,
+                    'location': _selectedRoom,
                   }),
                 );
                 final data = jsonDecode(res.body);
@@ -389,127 +371,130 @@ class _ManageSessionsPageState extends State<ManageSessionsPage> {
     }
   }
 
-  List<Map<String, dynamic>> _teachers = [];
-
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-
     return Scaffold(
       appBar: AppBar(title: const Text("Manage Sessions")),
-      body: ListView.builder(
-        itemCount: _sessions.length + 1,
-        itemBuilder: (context, index) {
-          if (index == 0) {
-            return Card(
-              margin: const EdgeInsets.all(16),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  children: [
-                    DropdownButtonFormField<String>(
-                      value: _selectedCourse,
-                      items: _courses
-                          .map(
-                            (c) => DropdownMenuItem<String>(
-                              value: c['id'] as String,
-                              child: Text(c['name'] as String),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : ListView.builder(
+              itemCount: _sessions.length + 1,
+              itemBuilder: (context, index) {
+                if (index == 0) {
+                  return Card(
+                    margin: const EdgeInsets.all(16),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        children: [
+                          DropdownButtonFormField<String>(
+                            value: _selectedCourse,
+                            items: _courses
+                                .map(
+                                  (c) => DropdownMenuItem<String>(
+                                    value: c['id'] as String,
+                                    child: Text(c['name'] as String),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (v) =>
+                                setState(() => _selectedCourse = v!),
+                            decoration: const InputDecoration(
+                              labelText: "Course",
                             ),
-                          )
-                          .toList(),
-                      onChanged: (v) {
-                        setState(() {
-                          _selectedCourse = v!;
-                          _loadCompatibleTeachers(v!);
-                        });
-                      },
-                      decoration: const InputDecoration(labelText: "Course"),
-                      hint: _courses.isEmpty
-                          ? const Text('No courses available')
-                          : null,
-                    ),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      value: _selectedTeacher,
-                      items: _compatibleTeachers.map((tId) {
-                        final teacher = _teachers.firstWhere(
-                          (t) => t['id'] == tId,
-                          orElse: () => {'id': tId, 'full_name': tId},
-                        );
-                        return DropdownMenuItem<String>(
-                          value: tId,
-                          child: Text(teacher['full_name']),
-                        );
-                      }).toList(),
-                      onChanged: (v) => setState(() => _selectedTeacher = v!),
-                      decoration: const InputDecoration(labelText: "Teacher"),
-                      hint: _compatibleTeachers.isEmpty
-                          ? const Text('No compatible teachers')
-                          : null,
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _dateController,
-                      readOnly: true,
-                      onTap: _pickDate,
-                      decoration: const InputDecoration(
-                        labelText: "Date (YYYY-MM-DD)",
-                        suffixIcon: Icon(Icons.calendar_today),
+                          ),
+                          const SizedBox(height: 8),
+                          DropdownButtonFormField<String>(
+                            value: _selectedTeacher,
+                            items: _teachers
+                                .map(
+                                  (t) => DropdownMenuItem<String>(
+                                    value: t['id'] as String,
+                                    child: Text(t['full_name'] as String),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (v) =>
+                                setState(() => _selectedTeacher = v!),
+                            decoration: const InputDecoration(
+                              labelText: "Teacher",
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          DropdownButtonFormField<String>(
+                            value: _selectedRoom,
+                            items: _rooms
+                                .map(
+                                  (r) => DropdownMenuItem<String>(
+                                    value: r['name'],
+                                    child: Text(r['name']),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (v) =>
+                                setState(() => _selectedRoom = v!),
+                            decoration: const InputDecoration(
+                              labelText: "Room",
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: _dateController,
+                            decoration: const InputDecoration(
+                              labelText: "Date (YYYY-MM-DD)",
+                            ),
+                            readOnly: true,
+                            onTap: _pickDate,
+                          ),
+                          const SizedBox(height: 8),
+                          DropdownButtonFormField<String>(
+                            value: _selectedTimeSlot,
+                            items: _timeSlots
+                                .map(
+                                  (slot) => DropdownMenuItem<String>(
+                                    value: slot,
+                                    child: Text(slot),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (v) =>
+                                setState(() => _selectedTimeSlot = v!),
+                            decoration: const InputDecoration(
+                              labelText: "Time Slot",
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          ElevatedButton(
+                            onPressed: _createSession,
+                            child: const Text("Create Session"),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      value: _selectedTimeSlot,
-                      items: _timeSlots
-                          .map(
-                            (slot) => DropdownMenuItem<String>(
-                              value: slot,
-                              child: Text(slot),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (v) => setState(() => _selectedTimeSlot = v!),
-                      decoration: const InputDecoration(labelText: "Time Slot"),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _locationController,
-                      decoration: const InputDecoration(labelText: "Location"),
-                    ),
-                    const SizedBox(height: 12),
-                    ElevatedButton(
-                      onPressed: _createSession,
-                      child: const Text("Create Session"),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
-          final session = _sessions[index - 1];
-          return ListTile(
-            title: Text(session['courseName']),
-            subtitle: Text(
-              "${session['courseDate']} • ${session['teacherName']} • ${session['room']}",
+                  );
+                }
+                final session = _sessions[index - 1];
+                return ListTile(
+                  title: Text(session['courseName']),
+                  subtitle: Text(
+                    "${session['courseDate']} • ${session['teacherName']} • ${session['room']}",
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.edit),
+                        onPressed: () => _editSession(session),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete),
+                        onPressed: () => _deleteSession(session['session_id']),
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.edit),
-                  onPressed: () => _editSession(session),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.delete),
-                  onPressed: () => _deleteSession(session['session_id']),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
     );
   }
 }
