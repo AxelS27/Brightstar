@@ -1,48 +1,79 @@
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
-import '../../shared/widgets/teacher_report_popup.dart';
 import '../../shared/widgets/brightstar_appbar.dart';
-import 'teacher_information_page.dart';
-import '../../core/services/teacher_service.dart';
+import '../../../core/config/api_config.dart';
+import 'admin_information_page.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
-class TeacherPage extends StatefulWidget {
-  final String teacherId;
-  const TeacherPage({super.key, required this.teacherId});
+class AdminDashboard extends StatefulWidget {
+  final String adminId;
+  const AdminDashboard({super.key, required this.adminId});
 
   @override
-  State<TeacherPage> createState() => _TeacherPageState();
+  State<AdminDashboard> createState() => _AdminDashboardState();
 }
 
-class _TeacherPageState extends State<TeacherPage> {
+class _AdminDashboardState extends State<AdminDashboard> {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
-  Map<String, dynamic>? teacherData;
-  bool _isLoading = true;
   List<Map<String, dynamic>> _schedules = [];
-  List<Map<String, dynamic>> _filteredSchedules = [];
+  Map<String, dynamic>? _adminInfo;
+  bool _isLoading = true;
   final _format = DateFormat("yyyy-MM-dd HH:mm");
 
   @override
   void initState() {
     super.initState();
-    _loadTeacherInfo();
-    _loadTeacherSchedule();
+    _loadAdminInfo();
+    _loadAllSessions();
   }
 
-  Future<void> _loadTeacherInfo() async {
-    final data = await TeacherService.getTeacherInfo(widget.teacherId);
+  Future<void> _loadAdminInfo() async {
+    try {
+      final url = Uri.parse(
+        "${ApiConfig.baseUrl}/get_admin.php?id=${widget.adminId}",
+      );
+      final res = await http.get(url);
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['status'] == 'success') {
+          setState(() {
+            _adminInfo = data['data'];
+          });
+        }
+      }
+    } catch (e) {}
+  }
+
+  Future<void> _loadAllSessions() async {
+    try {
+      final url = Uri.parse("${ApiConfig.baseUrl}/get_all_sessions.php");
+      final res = await http.get(url).timeout(const Duration(seconds: 10));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['status'] == 'success') {
+          setState(() {
+            _schedules = List<Map<String, dynamic>>.from(data['data']);
+            _filterSchedulesForDay(_focusedDay);
+            _isLoading = false;
+          });
+        } else {
+          _handleError();
+        }
+      } else {
+        _handleError();
+      }
+    } catch (e) {
+      _handleError();
+    }
+  }
+
+  void _handleError() {
     setState(() {
-      teacherData = data;
+      _schedules = [];
       _isLoading = false;
-    });
-  }
-
-  Future<void> _loadTeacherSchedule() async {
-    final schedules = await TeacherService.getTeacherSchedule(widget.teacherId);
-    setState(() {
-      _schedules = schedules;
-      _filterSchedulesForDay(_focusedDay);
     });
   }
 
@@ -52,21 +83,6 @@ class _TeacherPageState extends State<TeacherPage> {
     _filteredSchedules = _schedules
         .where((s) => s["courseDate"] == dateStr)
         .toList();
-  }
-
-  void _openReportPopup(
-    Map<String, dynamic> classData, {
-    bool readOnly = false,
-  }) {
-    showDialog(
-      context: context,
-      barrierDismissible: true,
-      builder: (context) => TeacherReportPopup(
-        classData: classData,
-        readOnly: readOnly,
-        onReportSaved: _loadTeacherSchedule,
-      ),
-    );
   }
 
   String _monthName(int month) {
@@ -173,26 +189,23 @@ class _TeacherPageState extends State<TeacherPage> {
         ),
       );
     }
-    final teacherName =
-        teacherData?['data']?['teacherName'] ?? 'Unknown Teacher';
-    final upcoming = _upcomingClasses();
-    final ongoing = _ongoingClasses();
-    final past = _pastClasses();
-
+    final adminName = _adminInfo?['adminName'] ?? 'Admin';
     return Scaffold(
       backgroundColor: const Color(0xFFF7F5FB),
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(170),
         child: BrightStarAppBar(
-          title: "Teacher Dashboard",
-          teacherName: teacherName,
-          onAvatarTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) =>
-                  TeacherInformationPage(teacherId: widget.teacherId),
-            ),
-          ),
+          title: "Admin Dashboard",
+          teacherName: adminName,
+          showBackButton: false,
+          onAvatarTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => AdminInformationPage(adminId: widget.adminId),
+              ),
+            );
+          },
         ),
       ),
       body: SafeArea(
@@ -205,31 +218,12 @@ class _TeacherPageState extends State<TeacherPage> {
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16),
                 child: Text(
-                  "Schedule",
+                  "Global Calendar",
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
               ),
               const SizedBox(height: 12),
               _buildCalendar(),
-              const SizedBox(height: 24),
-              if (ongoing.isNotEmpty)
-                _buildClassSection("Ongoing Classes", ongoing, "ongoing"),
-              if (upcoming.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                _buildClassSection("Upcoming Classes", upcoming, "upcoming"),
-              ],
-              if (past.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                _buildClassSection("Past Classes", past, "past"),
-              ],
-              if (upcoming.isEmpty && ongoing.isEmpty && past.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-                  child: Text(
-                    "No classes scheduled for this day.",
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                ),
             ],
           ),
         ),
@@ -376,6 +370,7 @@ class _TeacherPageState extends State<TeacherPage> {
     );
   }
 
+  List<Map<String, dynamic>> _filteredSchedules = [];
   Color _getDotColorForDay(DateTime day) {
     final dateStr =
         "${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}";
@@ -383,184 +378,24 @@ class _TeacherPageState extends State<TeacherPage> {
         .where((s) => s["courseDate"] == dateStr)
         .toList();
     if (classes.isEmpty) return Colors.transparent;
-
     final now = DateTime.now();
     final startToday = DateTime(now.year, now.month, now.day);
     final endToday = DateTime(now.year, now.month, now.day, 23, 59);
-
     for (var cls in classes) {
       try {
         final start = _format.parse("${cls["courseDate"]} ${cls["startTime"]}");
         final end = _format.parse("${cls["courseDate"]} ${cls["endTime"]}");
         if (start.isBefore(endToday) && end.isAfter(startToday)) {
-          return const Color(0xFF00C853);
+          return const Color(0xFF4DB6AC);
         } else if (start.isAfter(endToday)) {
-          return const Color.fromARGB(248, 32, 2, 97);
+          return const Color(0xFFFFA726);
         } else {
-          return const Color(0xFFD32F2F);
+          return const Color(0xFFBA68C8);
         }
       } catch (_) {
         continue;
       }
     }
     return const Color(0xFF8E24AA);
-  }
-
-  Widget _buildClassSection(
-    String title,
-    List<Map<String, dynamic>> classes,
-    String type,
-  ) {
-    final uniqueSessions = <String, Map<String, dynamic>>{};
-    for (var cls in classes) {
-      final key = "${cls['session_id']}_${cls['courseDate']}";
-      if (!uniqueSessions.containsKey(key)) {
-        uniqueSessions[key] = cls;
-      }
-    }
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          Column(
-            children: uniqueSessions.values.map((session) {
-              return Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: type == "past"
-                      ? const Color(0xFFBA68C8)
-                      : type == "ongoing"
-                      ? const Color(0xFF4DB6AC)
-                      : const Color(0xFFFFA726),
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.class_, color: Colors.white),
-                        const SizedBox(width: 6),
-                        Text(
-                          "${session['courseName']} - ${teacherData?['data']?['teacherName'] ?? ''}",
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                            fontSize: 15,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      "${session['courseDate']} (${session['startTime']} - ${session['endTime']})\nRoom: ${session['room']}",
-                      style: const TextStyle(color: Colors.white70),
-                    ),
-                    const SizedBox(height: 12),
-                    Align(
-                      alignment: Alignment.bottomRight,
-                      child: ElevatedButton.icon(
-                        onPressed: () => _showStudentSelection(
-                          session['session_id'],
-                          session['courseName'],
-                          session['courseDate'],
-                          session['room'],
-                          session['startTime'],
-                          session['endTime'],
-                        ),
-                        icon: const Icon(Icons.person_add),
-                        label: const Text('Select Student'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: Colors.deepPurple,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 10,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showStudentSelection(
-    String sessionId,
-    String courseName,
-    String courseDate,
-    String room,
-    String startTime,
-    String endTime,
-  ) {
-    final studentsInSession = _schedules
-        .where(
-          (s) => s['session_id'] == sessionId && s['courseDate'] == courseDate,
-        )
-        .toList();
-    if (studentsInSession.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No students enrolled in this session')),
-      );
-      return;
-    }
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Select Student'),
-        content: SizedBox(
-          width: 300,
-          height: 300,
-          child: ListView.builder(
-            itemCount: studentsInSession.length,
-            itemBuilder: (context, index) {
-              final student = studentsInSession[index];
-              final hasReport = student['hasReport'] == '1';
-              return ListTile(
-                title: Text(student['studentName']),
-                subtitle: Text(hasReport ? '✅ Report exists' : 'No report'),
-                trailing: Icon(
-                  hasReport ? Icons.visibility : Icons.edit_note,
-                  color: hasReport ? Colors.green : Colors.orange,
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  _openReportPopup(student, readOnly: hasReport);
-                },
-              );
-            },
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: Navigator.of(context).pop,
-            child: const Text('Cancel'),
-          ),
-        ],
-      ),
-    );
   }
 }

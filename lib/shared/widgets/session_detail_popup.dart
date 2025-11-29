@@ -82,7 +82,6 @@ class SessionDetailPopup extends StatelessWidget {
                 child: ElevatedButton.icon(
                   onPressed: () {
                     Navigator.pop(context);
-                    // Siswa hanya bisa view, tidak edit
                   },
                   icon: const Icon(Icons.visibility),
                   label: const Text("View Report"),
