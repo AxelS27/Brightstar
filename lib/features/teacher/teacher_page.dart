@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
 import '../../shared/widgets/teacher_report_popup.dart';
@@ -175,6 +176,7 @@ class _TeacherPageState extends State<TeacherPage> {
     }
     final teacherName =
         teacherData?['data']?['teacherName'] ?? 'Unknown Teacher';
+    final profileImageUrl = teacherData?['data']?['profile_image'];
     final upcoming = _upcomingClasses();
     final ongoing = _ongoingClasses();
     final past = _pastClasses();
@@ -185,7 +187,8 @@ class _TeacherPageState extends State<TeacherPage> {
         preferredSize: const Size.fromHeight(170),
         child: BrightStarAppBar(
           title: "Teacher Dashboard",
-          teacherName: teacherName,
+          name: teacherName,
+          profileImageUrl: profileImageUrl,
           onAvatarTap: () => Navigator.push(
             context,
             MaterialPageRoute(
@@ -369,10 +372,10 @@ class _TeacherPageState extends State<TeacherPage> {
                   );
                 },
               ),
-            ),
+            ).animate().fadeIn(duration: 400.ms),
           ],
         ),
-      ),
+      ).animate().fadeIn(duration: 500.ms).slideY(begin: 0.1, end: 0),
     );
   }
 
@@ -500,7 +503,7 @@ class _TeacherPageState extends State<TeacherPage> {
                     ),
                   ],
                 ),
-              );
+              ).animate().fadeIn(duration: 300.ms).slideX(begin: -0.2, end: 0);
             }).toList(),
           ),
         ],

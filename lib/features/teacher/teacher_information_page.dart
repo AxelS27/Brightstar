@@ -63,7 +63,7 @@ class _TeacherInformationPageState extends State<TeacherInformationPage> {
     final url = Uri.parse("${ApiConfig.baseUrl}/update_profile_image.php");
     try {
       var request = http.MultipartRequest('POST', url);
-      request.fields['teacher_id'] = widget.teacherId;
+      request.fields['user_id'] = widget.teacherId;
       request.files.add(
         await http.MultipartFile.fromPath('profile_image', _profileImage!.path),
       );
@@ -80,11 +80,7 @@ class _TeacherInformationPageState extends State<TeacherInformationPage> {
           context,
         ).showSnackBar(SnackBar(content: Text("⚠️ ${data['message']}")));
       }
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Upload error")));
-    }
+    } catch (e) {}
   }
 
   Future<void> _changePassword() async {
@@ -169,7 +165,7 @@ class _TeacherInformationPageState extends State<TeacherInformationPage> {
                     preferredSize: const Size.fromHeight(170),
                     child: BrightStarAppBar(
                       title: "Teacher Information",
-                      teacherName: teacherName,
+                      name: teacherName,
                       profileImageUrl: profileImageUrl,
                       showBackButton: false,
                     ),

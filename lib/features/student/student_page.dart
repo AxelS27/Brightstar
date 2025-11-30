@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
 import '../../shared/widgets/brightstar_appbar.dart';
@@ -174,7 +175,7 @@ class _StudentPageState extends State<StudentPage> {
         preferredSize: const Size.fromHeight(170),
         child: BrightStarAppBar(
           title: "Student Dashboard",
-          teacherName: studentName,
+          name: studentName,
           profileImageUrl: profileImageUrl,
           onAvatarTap: () {
             Navigator.push(
@@ -361,10 +362,10 @@ class _StudentPageState extends State<StudentPage> {
                   );
                 },
               ),
-            ),
+            ).animate().fadeIn(duration: 400.ms),
           ],
         ),
-      ),
+      ).animate().fadeIn(duration: 500.ms).slideY(begin: 0.1, end: 0),
     );
   }
 
@@ -478,7 +479,7 @@ class _StudentPageState extends State<StudentPage> {
                       ),
                   ],
                 ),
-              );
+              ).animate().fadeIn(duration: 300.ms).slideX(begin: -0.2, end: 0);
             }).toList(),
           ),
         ],

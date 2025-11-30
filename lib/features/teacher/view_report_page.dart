@@ -21,7 +21,7 @@ class _ViewReportPageState extends State<ViewReportPage> {
   Map<String, dynamic>? teacherData;
   bool _isLoading = true;
   List<Map<String, dynamic>> reports = [];
-  List<String> courses = ['All Courses']; // Akan diisi dari API
+  List<String> courses = ['All Courses'];
 
   @override
   void initState() {
@@ -126,7 +126,7 @@ class _ViewReportPageState extends State<ViewReportPage> {
         preferredSize: const Size.fromHeight(170),
         child: BrightStarAppBar(
           title: "View Reports",
-          teacherName: teacherName,
+          name: teacherName,
           profileImageUrl: profileImageUrl,
           showBackButton: false,
           onAvatarTap: () {

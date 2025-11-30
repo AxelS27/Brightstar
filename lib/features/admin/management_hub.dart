@@ -58,13 +58,15 @@ class _ManagementHubState extends State<ManagementHub> {
       );
     }
     final adminName = _adminInfo?['adminName'] ?? 'Admin';
+    final profileImageUrl = _adminInfo?['profile_image'];
     return Scaffold(
       backgroundColor: const Color(0xFFF7F5FB),
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(170),
         child: BrightStarAppBar(
           title: "Management",
-          teacherName: adminName,
+          name: adminName,
+          profileImageUrl: profileImageUrl,
           showBackButton: false,
           onAvatarTap: () {
             Navigator.push(

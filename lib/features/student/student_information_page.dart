@@ -170,7 +170,7 @@ class _StudentInformationPageState extends State<StudentInformationPage> {
                     preferredSize: const Size.fromHeight(170),
                     child: BrightStarAppBar(
                       title: "Student Information",
-                      teacherName: studentName,
+                      name: studentName,
                       profileImageUrl: profileImageUrl,
                       showBackButton: false,
                     ),

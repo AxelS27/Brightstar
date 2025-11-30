@@ -112,7 +112,7 @@ class _StudentViewReportPageState extends State<StudentViewReportPage> {
         preferredSize: const Size.fromHeight(170),
         child: BrightStarAppBar(
           title: "My Reports",
-          teacherName: studentName,
+          name: studentName,
           profileImageUrl: profileImageUrl,
           showBackButton: false,
           onAvatarTap: () {

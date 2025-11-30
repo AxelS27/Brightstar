@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
 import '../../shared/widgets/brightstar_appbar.dart';
@@ -224,13 +225,15 @@ class _AdminDashboardState extends State<AdminDashboard> {
       );
     }
     final adminName = _adminInfo?['adminName'] ?? 'Admin';
+    final profileImageUrl = _adminInfo?['profile_image'];
     return Scaffold(
       backgroundColor: const Color(0xFFF7F5FB),
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(170),
         child: BrightStarAppBar(
           title: "Admin Dashboard",
-          teacherName: adminName,
+          name: adminName,
+          profileImageUrl: profileImageUrl,
           showBackButton: false,
           onAvatarTap: () {
             Navigator.push(
@@ -422,11 +425,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   );
                 },
               ),
-            ),
+            ).animate().fadeIn(duration: 400.ms),
           ],
         ),
       ),
-    );
+    ).animate().fadeIn(duration: 500.ms).slideY(begin: 0.1, end: 0);
   }
 
   List<Map<String, dynamic>> _filteredSchedules = [];
@@ -546,7 +549,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       ),
                   ],
                 ),
-              );
+              ).animate().fadeIn(duration: 300.ms).slideX(begin: -0.2, end: 0);
             }).toList(),
           ),
         ],

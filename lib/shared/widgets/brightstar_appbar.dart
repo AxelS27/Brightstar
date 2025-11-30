@@ -3,7 +3,7 @@ import '../../core/config/api_config.dart';
 
 class BrightStarAppBar extends StatelessWidget {
   final String title;
-  final String teacherName;
+  final String name;
   final String? profileImageUrl;
   final bool showBackButton;
   final VoidCallback? onBack;
@@ -11,7 +11,7 @@ class BrightStarAppBar extends StatelessWidget {
   const BrightStarAppBar({
     super.key,
     required this.title,
-    required this.teacherName,
+    required this.name,
     this.profileImageUrl,
     this.showBackButton = false,
     this.onBack,
@@ -98,7 +98,7 @@ class BrightStarAppBar extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Text(
-                    teacherName,
+                    name,
                     style: const TextStyle(
                       color: Color(0xFFF3E5F5),
                       fontSize: 18,
