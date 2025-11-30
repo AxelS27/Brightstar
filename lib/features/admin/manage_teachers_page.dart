@@ -17,7 +17,7 @@ class _ManageTeachersPageState extends State<ManageTeachersPage> {
   final TextEditingController _specializationController =
       TextEditingController();
   final TextEditingController _emailController = TextEditingController();
-  List<String> _selectedCourses = [];
+  final List<String> _selectedCourses = [];
   List<Map<String, dynamic>> _teachers = [];
   List<Map<String, dynamic>> _allCourses = [];
   bool _isLoading = true;

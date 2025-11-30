@@ -3,7 +3,6 @@ import 'manage_students_page.dart';
 import 'manage_teachers_page.dart';
 import 'manage_courses_page.dart';
 import 'manage_sessions_page.dart';
-import 'admin_reports_page.dart';
 import 'admin_information_page.dart';
 import 'manage_rooms_page.dart';
 import '../../shared/widgets/brightstar_appbar.dart';

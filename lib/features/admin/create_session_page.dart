@@ -22,7 +22,7 @@ class _CreateSessionPageState extends State<CreateSessionPage> {
   final TextEditingController _locationController = TextEditingController();
   String _selectedCourse = 'CO001';
   String _selectedTeacher = 'T270206001';
-  List<String> _selectedStudents = [];
+  final List<String> _selectedStudents = [];
 
   final List<String> _courses = ['CO001', 'EN001', 'MA001', 'LG001'];
   final List<String> _teachers = ['T270206001', 'T100395001'];
@@ -40,7 +40,7 @@ class _CreateSessionPageState extends State<CreateSessionPage> {
               Text("Date: ${widget.selectedDate.toLocal()}"),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: _selectedCourse,
+                initialValue: _selectedCourse,
                 items: _courses
                     .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                     .toList(),
@@ -49,7 +49,7 @@ class _CreateSessionPageState extends State<CreateSessionPage> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: _selectedTeacher,
+                initialValue: _selectedTeacher,
                 items: _teachers
                     .map((t) => DropdownMenuItem(value: t, child: Text(t)))
                     .toList(),

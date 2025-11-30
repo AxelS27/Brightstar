@@ -16,7 +16,7 @@ class _ManageStudentsPageState extends State<ManageStudentsPage> {
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _gradeController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
-  List<String> _selectedCourses = [];
+  final List<String> _selectedCourses = [];
   List<Map<String, dynamic>> _students = [];
   List<Map<String, dynamic>> _allCourses = [];
   bool _isLoading = true;

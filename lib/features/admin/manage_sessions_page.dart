@@ -19,9 +19,9 @@ class _ManageSessionsPageState extends State<ManageSessionsPage> {
   final List<String> _selectedStudents = [];
   List<Map<String, dynamic>> _sessions = [];
   List<Map<String, dynamic>> _courses = [];
-  List<Map<String, dynamic>> _teachers = [];
+  List<Map<String, dynamic>> _teachersInSelectedCourse = [];
   List<Map<String, dynamic>> _rooms = [];
-  List<Map<String, dynamic>> _allStudents = [];
+  List<Map<String, dynamic>> _studentsInSelectedCourse = [];
   bool _isLoading = true;
 
   List<String> get _timeSlots {
@@ -40,9 +40,7 @@ class _ManageSessionsPageState extends State<ManageSessionsPage> {
     super.initState();
     _loadSessions();
     _loadCourses();
-    _loadTeachers();
     _loadRooms();
-    _loadAllStudents();
   }
 
   Future<void> _loadSessions() async {
@@ -75,21 +73,11 @@ class _ManageSessionsPageState extends State<ManageSessionsPage> {
         if (data['status'] == 'success') {
           setState(() {
             _courses = List<Map<String, dynamic>>.from(data['data']);
-          });
-        }
-      }
-    } catch (e) {}
-  }
-
-  Future<void> _loadTeachers() async {
-    try {
-      final url = Uri.parse("${ApiConfig.baseUrl}/get_all_teachers.php");
-      final res = await http.get(url);
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-        if (data['status'] == 'success') {
-          setState(() {
-            _teachers = List<Map<String, dynamic>>.from(data['data']);
+            if (_courses.isNotEmpty && _selectedCourse == null) {
+              _selectedCourse = _courses[0]['id'];
+              _loadCompatibleTeachers(_selectedCourse!);
+              _loadCompatibleStudents(_selectedCourse!);
+            }
           });
         }
       }
@@ -111,15 +99,42 @@ class _ManageSessionsPageState extends State<ManageSessionsPage> {
     } catch (e) {}
   }
 
-  Future<void> _loadAllStudents() async {
+  Future<void> _loadCompatibleTeachers(String courseId) async {
     try {
-      final url = Uri.parse("${ApiConfig.baseUrl}/get_all_students.php");
+      final url = Uri.parse(
+        "${ApiConfig.baseUrl}/get_compatible_teachers_by_course.php?course_type_id=$courseId",
+      );
       final res = await http.get(url);
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         if (data['status'] == 'success') {
           setState(() {
-            _allStudents = List<Map<String, dynamic>>.from(data['data']);
+            _teachersInSelectedCourse = List<Map<String, dynamic>>.from(
+              data['data'],
+            );
+            if (_teachersInSelectedCourse.isNotEmpty &&
+                _selectedTeacher == null) {
+              _selectedTeacher = _teachersInSelectedCourse[0]['id'];
+            }
+          });
+        }
+      }
+    } catch (e) {}
+  }
+
+  Future<void> _loadCompatibleStudents(String courseId) async {
+    try {
+      final url = Uri.parse(
+        "${ApiConfig.baseUrl}/get_compatible_students.php?course_type_id=$courseId",
+      );
+      final res = await http.get(url);
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['status'] == 'success') {
+          setState(() {
+            _studentsInSelectedCourse = List<Map<String, dynamic>>.from(
+              data['data'],
+            );
           });
         }
       }
@@ -228,12 +243,10 @@ class _ManageSessionsPageState extends State<ManageSessionsPage> {
   }
 
   Future<void> _editSession(Map<String, dynamic> session) async {
-    if (_teachers.isEmpty) {
-      await _loadTeachers();
-    }
-    if (_allStudents.isEmpty) {
-      await _loadAllStudents();
-    }
+    if (_courses.isEmpty) await _loadCourses();
+    _selectedCourse ??= session['course_type_id'];
+    await _loadCompatibleTeachers(session['course_type_id']);
+    await _loadCompatibleStudents(session['course_type_id']);
 
     final dateController = TextEditingController(text: session['courseDate']);
     String? selectedCourse = session['course_type_id'];
@@ -258,7 +271,7 @@ class _ManageSessionsPageState extends State<ManageSessionsPage> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   DropdownButtonFormField<String>(
-                    value: selectedCourse,
+                    initialValue: selectedCourse,
                     items: _courses
                         .map(
                           (c) => DropdownMenuItem<String>(
@@ -267,13 +280,19 @@ class _ManageSessionsPageState extends State<ManageSessionsPage> {
                           ),
                         )
                         .toList(),
-                    onChanged: (v) => setState(() => selectedCourse = v!),
+                    onChanged: (v) {
+                      setState(() {
+                        selectedCourse = v!;
+                        _loadCompatibleTeachers(v);
+                        _loadCompatibleStudents(v);
+                      });
+                    },
                     decoration: const InputDecoration(labelText: "Course"),
                   ),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
-                    value: selectedTeacher,
-                    items: _teachers
+                    initialValue: selectedTeacher,
+                    items: _teachersInSelectedCourse
                         .map(
                           (t) => DropdownMenuItem<String>(
                             value: t['id'] as String,
@@ -286,7 +305,7 @@ class _ManageSessionsPageState extends State<ManageSessionsPage> {
                   ),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
-                    value: selectedRoom,
+                    initialValue: selectedRoom,
                     items: _rooms
                         .map(
                           (r) => DropdownMenuItem<String>(
@@ -309,7 +328,7 @@ class _ManageSessionsPageState extends State<ManageSessionsPage> {
                   ),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
-                    value: selectedTimeSlot,
+                    initialValue: selectedTimeSlot,
                     items: _timeSlots
                         .map(
                           (slot) => DropdownMenuItem<String>(
@@ -329,7 +348,7 @@ class _ManageSessionsPageState extends State<ManageSessionsPage> {
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
-                    children: _allStudents.map((student) {
+                    children: _studentsInSelectedCourse.map((student) {
                       final isSelected = selectedStudents.contains(
                         student['id'],
                       );
@@ -511,7 +530,7 @@ class _ManageSessionsPageState extends State<ManageSessionsPage> {
                       child: Column(
                         children: [
                           DropdownButtonFormField<String>(
-                            value: _selectedCourse,
+                            initialValue: _selectedCourse,
                             items: _courses
                                 .map(
                                   (c) => DropdownMenuItem<String>(
@@ -520,16 +539,21 @@ class _ManageSessionsPageState extends State<ManageSessionsPage> {
                                   ),
                                 )
                                 .toList(),
-                            onChanged: (v) =>
-                                setState(() => _selectedCourse = v!),
+                            onChanged: (v) {
+                              setState(() {
+                                _selectedCourse = v!;
+                                _loadCompatibleTeachers(v);
+                                _loadCompatibleStudents(v);
+                              });
+                            },
                             decoration: const InputDecoration(
                               labelText: "Course",
                             ),
                           ),
                           const SizedBox(height: 8),
                           DropdownButtonFormField<String>(
-                            value: _selectedTeacher,
-                            items: _teachers
+                            initialValue: _selectedTeacher,
+                            items: _teachersInSelectedCourse
                                 .map(
                                   (t) => DropdownMenuItem<String>(
                                     value: t['id'] as String,
@@ -545,7 +569,7 @@ class _ManageSessionsPageState extends State<ManageSessionsPage> {
                           ),
                           const SizedBox(height: 8),
                           DropdownButtonFormField<String>(
-                            value: _selectedRoom,
+                            initialValue: _selectedRoom,
                             items: _rooms
                                 .map(
                                   (r) => DropdownMenuItem<String>(
@@ -571,7 +595,7 @@ class _ManageSessionsPageState extends State<ManageSessionsPage> {
                           ),
                           const SizedBox(height: 8),
                           DropdownButtonFormField<String>(
-                            value: _selectedTimeSlot,
+                            initialValue: _selectedTimeSlot,
                             items: _timeSlots
                                 .map(
                                   (slot) => DropdownMenuItem<String>(
@@ -594,7 +618,7 @@ class _ManageSessionsPageState extends State<ManageSessionsPage> {
                           const SizedBox(height: 8),
                           Wrap(
                             spacing: 8,
-                            children: _allStudents.map((student) {
+                            children: _studentsInSelectedCourse.map((student) {
                               final isSelected = _selectedStudents.contains(
                                 student['id'],
                               );

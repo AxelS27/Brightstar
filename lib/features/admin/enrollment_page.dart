@@ -24,7 +24,7 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
         child: Column(
           children: [
             DropdownButtonFormField<String>(
-              value: _selectedStudent,
+              initialValue: _selectedStudent,
               items: _students
                   .map((s) => DropdownMenuItem(value: s, child: Text(s)))
                   .toList(),
