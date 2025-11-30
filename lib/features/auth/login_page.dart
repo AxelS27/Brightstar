@@ -158,7 +158,7 @@ class _LoginPageState extends State<LoginPage> {
                             TextField(
                               controller: _idController,
                               decoration: InputDecoration(
-                                labelText: 'Teacher ID (e.g., T270206001)',
+                                labelText: 'User ID',
                                 prefixIcon: const Icon(Icons.person_outline),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),

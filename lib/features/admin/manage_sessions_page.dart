@@ -12,12 +12,11 @@ class ManageSessionsPage extends StatefulWidget {
 
 class _ManageSessionsPageState extends State<ManageSessionsPage> {
   final TextEditingController _dateController = TextEditingController();
-  final TextEditingController _locationController = TextEditingController();
   String? _selectedCourse;
   String? _selectedTeacher;
   String? _selectedRoom;
   String? _selectedTimeSlot;
-  List<String> _selectedStudents = [];
+  final List<String> _selectedStudents = [];
   List<Map<String, dynamic>> _sessions = [];
   List<Map<String, dynamic>> _courses = [];
   List<Map<String, dynamic>> _teachers = [];

@@ -5,6 +5,9 @@ import '../../shared/widgets/brightstar_appbar.dart';
 import '../../shared/widgets/report_detail_popup.dart';
 import 'student_information_page.dart';
 import '../../../core/services/student_service.dart';
+import '../../../core/config/api_config.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
 class StudentPage extends StatefulWidget {
   final String studentId;
@@ -457,26 +460,7 @@ class _StudentPageState extends State<StudentPage> {
                       Align(
                         alignment: Alignment.bottomRight,
                         child: ElevatedButton.icon(
-                          onPressed: () {
-                            showDialog(
-                              context: context,
-                              builder: (_) => ReportDetailPopup(
-                                studentName:
-                                    studentData?['data']?['studentName'] ??
-                                    'N/A',
-                                title: classItem['title'] ?? 'No report',
-                                course: classItem['courseName'] ?? '-',
-                                meetingNumber: 1,
-                                description:
-                                    classItem['description'] ??
-                                    'No report available',
-                                imageUrl: classItem['picture'] ?? '',
-                                time:
-                                    "${classItem['startTime']} - ${classItem['endTime']}",
-                                place: classItem['room'] ?? '-',
-                              ),
-                            );
-                          },
+                          onPressed: () => _showReportDetail(classItem),
                           icon: const Icon(Icons.visibility),
                           label: const Text("View Report"),
                           style: ElevatedButton.styleFrom(
@@ -500,5 +484,61 @@ class _StudentPageState extends State<StudentPage> {
         ],
       ),
     );
+  }
+
+  Future<void> _showReportDetail(Map<String, dynamic> classItem) async {
+    final url = Uri.parse(
+      "${ApiConfig.baseUrl}/get_report.php?session_id=${classItem['session_id']}&student_id=${widget.studentId}",
+    );
+    try {
+      final res = await http.get(url);
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['status'] == 'success' && data['data'] != null) {
+          final report = data['data'];
+          showDialog(
+            context: context,
+            builder: (_) => ReportDetailPopup(
+              studentName: studentData?['data']?['studentName'] ?? 'N/A',
+              title: report['title'] ?? 'No report',
+              course: classItem['courseName'] ?? '-',
+              meetingNumber: 1,
+              description: report['description'] ?? 'No report available',
+              imageUrl: report['picture'] ?? '',
+              time: "${classItem['startTime']} - ${classItem['endTime']}",
+              place: classItem['room'] ?? '-',
+            ),
+          );
+        } else {
+          showDialog(
+            context: context,
+            builder: (_) => ReportDetailPopup(
+              studentName: studentData?['data']?['studentName'] ?? 'N/A',
+              title: 'No Report',
+              course: classItem['courseName'] ?? '-',
+              meetingNumber: 1,
+              description: 'No report available',
+              imageUrl: '',
+              time: "${classItem['startTime']} - ${classItem['endTime']}",
+              place: classItem['room'] ?? '-',
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      showDialog(
+        context: context,
+        builder: (_) => ReportDetailPopup(
+          studentName: studentData?['data']?['studentName'] ?? 'N/A',
+          title: 'Error',
+          course: classItem['courseName'] ?? '-',
+          meetingNumber: 1,
+          description: 'Failed to load report',
+          imageUrl: '',
+          time: "${classItem['startTime']} - ${classItem['endTime']}",
+          place: classItem['room'] ?? '-',
+        ),
+      );
+    }
   }
 }

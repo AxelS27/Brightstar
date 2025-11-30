@@ -14,16 +14,16 @@ class AdminMain extends StatefulWidget {
 class _AdminMainState extends State<AdminMain> {
   int _selectedIndex = 0;
 
-  final List<Widget> _pages = [];
+  late final List<Widget> _pages;
 
   @override
   void initState() {
     super.initState();
-    _pages.addAll([
+    _pages = [
       AdminDashboard(adminId: widget.adminId),
       ManagementHub(adminId: widget.adminId),
-      const AdminReportsPage(),
-    ]);
+      AdminReportsPage(adminId: widget.adminId),
+    ];
   }
 
   @override

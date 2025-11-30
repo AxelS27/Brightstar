@@ -21,24 +21,40 @@ class _ViewReportPageState extends State<ViewReportPage> {
   Map<String, dynamic>? teacherData;
   bool _isLoading = true;
   List<Map<String, dynamic>> reports = [];
-  final List<String> courses = [
-    'All Courses',
-    'Coding',
-    'English',
-    'Math',
-    'Lego Robotics',
-  ];
+  List<String> courses = ['All Courses']; // Akan diisi dari API
 
   @override
   void initState() {
     super.initState();
     _loadTeacherInfo();
-    _loadReports();
+    _loadCourses();
   }
 
   Future<void> _loadTeacherInfo() async {
     final data = await TeacherService.getTeacherInfo(widget.teacherId);
     setState(() => teacherData = data);
+  }
+
+  Future<void> _loadCourses() async {
+    try {
+      final url = Uri.parse("${ApiConfig.baseUrl}/get_all_courses.php");
+      final res = await http.get(url);
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        if (body['status'] == 'success') {
+          final courseList = ['All Courses'];
+          for (var course in body['data']) {
+            courseList.add(course['name']);
+          }
+          setState(() {
+            courses = courseList;
+            _loadReports();
+          });
+        }
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+    }
   }
 
   Future<void> _loadReports() async {
@@ -49,11 +65,11 @@ class _ViewReportPageState extends State<ViewReportPage> {
     }
     if (startDate != null) {
       url +=
-          "&start_date=${startDate!.year}-${startDate!.month.toString().padLeft(2, '0')}-${startDate!.day.toString().padLeft(2, '0')}";
+          "&start_date=${startDate!.year.toString().padLeft(4, '0')}-${startDate!.month.toString().padLeft(2, '0')}-${startDate!.day.toString().padLeft(2, '0')}";
     }
     if (endDate != null) {
       url +=
-          "&end_date=${endDate!.year}-${endDate!.month.toString().padLeft(2, '0')}-${endDate!.day.toString().padLeft(2, '0')}";
+          "&end_date=${endDate!.year.toString().padLeft(4, '0')}-${endDate!.month.toString().padLeft(2, '0')}-${endDate!.day.toString().padLeft(2, '0')}";
     }
 
     try {

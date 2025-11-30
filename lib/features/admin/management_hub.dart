@@ -3,16 +3,80 @@ import 'manage_students_page.dart';
 import 'manage_teachers_page.dart';
 import 'manage_courses_page.dart';
 import 'manage_sessions_page.dart';
+import 'admin_reports_page.dart';
+import 'admin_information_page.dart';
 import 'manage_rooms_page.dart';
+import '../../shared/widgets/brightstar_appbar.dart';
+import '../../../core/config/api_config.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
-class ManagementHub extends StatelessWidget {
+class ManagementHub extends StatefulWidget {
   final String adminId;
   const ManagementHub({super.key, required this.adminId});
 
   @override
+  State<ManagementHub> createState() => _ManagementHubState();
+}
+
+class _ManagementHubState extends State<ManagementHub> {
+  Map<String, dynamic>? _adminInfo;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAdminInfo();
+  }
+
+  Future<void> _loadAdminInfo() async {
+    try {
+      final url = Uri.parse(
+        "${ApiConfig.baseUrl}/get_admin.php?id=${widget.adminId}",
+      );
+      final res = await http.get(url);
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['status'] == 'success') {
+          setState(() {
+            _adminInfo = data['data'];
+            _isLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(color: Color(0xFF8E24AA)),
+        ),
+      );
+    }
+    final adminName = _adminInfo?['adminName'] ?? 'Admin';
     return Scaffold(
-      appBar: AppBar(title: const Text("Management")),
+      backgroundColor: const Color(0xFFF7F5FB),
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(170),
+        child: BrightStarAppBar(
+          title: "Management",
+          teacherName: adminName,
+          showBackButton: false,
+          onAvatarTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => AdminInformationPage(adminId: widget.adminId),
+              ),
+            );
+          },
+        ),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(

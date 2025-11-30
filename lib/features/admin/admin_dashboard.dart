@@ -6,6 +6,7 @@ import '../../../core/config/api_config.dart';
 import 'admin_information_page.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../../shared/widgets/report_detail_popup.dart';
 
 class AdminDashboard extends StatefulWidget {
   final String adminId;
@@ -18,7 +19,8 @@ class AdminDashboard extends StatefulWidget {
 class _AdminDashboardState extends State<AdminDashboard> {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
-  List<Map<String, dynamic>> _schedules = [];
+  List<Map<String, dynamic>> _sessions = [];
+  Map<String, List<Map<String, dynamic>>> _sessionStudents = {};
   Map<String, dynamic>? _adminInfo;
   bool _isLoading = true;
   final _format = DateFormat("yyyy-MM-dd HH:mm");
@@ -27,7 +29,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   void initState() {
     super.initState();
     _loadAdminInfo();
-    _loadAllSessions();
+    _loadAllSessionsWithStudents();
   }
 
   Future<void> _loadAdminInfo() async {
@@ -47,15 +49,46 @@ class _AdminDashboardState extends State<AdminDashboard> {
     } catch (e) {}
   }
 
-  Future<void> _loadAllSessions() async {
+  Future<void> _loadAllSessionsWithStudents() async {
     try {
-      final url = Uri.parse("${ApiConfig.baseUrl}/get_all_sessions.php");
+      final url = Uri.parse(
+        "${ApiConfig.baseUrl}/get_all_sessions_with_students.php",
+      );
       final res = await http.get(url).timeout(const Duration(seconds: 10));
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         if (data['status'] == 'success') {
+          final allData = List<Map<String, dynamic>>.from(data['data']);
+          final Map<String, Map<String, dynamic>> uniqueSessions = {};
+          final Map<String, List<Map<String, dynamic>>> studentsMap = {};
+          for (var item in allData) {
+            final sessionId = item['session_id'];
+            if (!uniqueSessions.containsKey(sessionId)) {
+              uniqueSessions[sessionId] = {
+                'session_id': item['session_id'],
+                'courseName': item['courseName'],
+                'courseDate': item['courseDate'],
+                'startTime': item['startTime'],
+                'endTime': item['endTime'],
+                'room': item['room'],
+                'teacherName': item['teacherName'],
+                'course_type_id': item['course_type_id'],
+                'teacher_id': item['teacher_id'],
+              };
+              studentsMap[sessionId] = [];
+            }
+            studentsMap[sessionId]!.add({
+              'student_id': item['student_id'],
+              'studentName': item['studentName'],
+              'hasReport': item['hasReport'],
+              'picture': item['picture'],
+              'title': item['title'],
+              'description': item['description'],
+            });
+          }
           setState(() {
-            _schedules = List<Map<String, dynamic>>.from(data['data']);
+            _sessions = uniqueSessions.values.toList();
+            _sessionStudents = studentsMap;
             _filterSchedulesForDay(_focusedDay);
             _isLoading = false;
           });
@@ -72,7 +105,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   void _handleError() {
     setState(() {
-      _schedules = [];
+      _sessions = [];
+      _sessionStudents = {};
       _isLoading = false;
     });
   }
@@ -80,7 +114,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   void _filterSchedulesForDay(DateTime day) {
     final dateStr =
         "${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}";
-    _filteredSchedules = _schedules
+    _filteredSchedules = _sessions
         .where((s) => s["courseDate"] == dateStr)
         .toList();
   }
@@ -224,6 +258,31 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
               const SizedBox(height: 12),
               _buildCalendar(),
+              const SizedBox(height: 24),
+              if (_upcomingClasses().isNotEmpty)
+                _buildClassSection(
+                  "Upcoming Classes",
+                  _upcomingClasses(),
+                  "upcoming",
+                ),
+              if (_ongoingClasses().isNotEmpty)
+                _buildClassSection(
+                  "Ongoing Classes",
+                  _ongoingClasses(),
+                  "ongoing",
+                ),
+              if (_pastClasses().isNotEmpty)
+                _buildClassSection("Past Classes", _pastClasses(), "past"),
+              if (_upcomingClasses().isEmpty &&
+                  _ongoingClasses().isEmpty &&
+                  _pastClasses().isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                  child: Text(
+                    "No classes scheduled for this day.",
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
             ],
           ),
         ),
@@ -328,7 +387,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
               calendarBuilders: CalendarBuilders(
                 defaultBuilder: (context, day, events) {
-                  final hasClasses = _schedules.any(
+                  final hasClasses = _sessions.any(
                     (s) =>
                         s["courseDate"] == day.toIso8601String().split('T')[0],
                   );
@@ -371,12 +430,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   List<Map<String, dynamic>> _filteredSchedules = [];
+
   Color _getDotColorForDay(DateTime day) {
     final dateStr =
         "${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}";
-    final classes = _schedules
-        .where((s) => s["courseDate"] == dateStr)
-        .toList();
+    final classes = _sessions.where((s) => s["courseDate"] == dateStr).toList();
     if (classes.isEmpty) return Colors.transparent;
     final now = DateTime.now();
     final startToday = DateTime(now.year, now.month, now.day);
@@ -397,5 +455,159 @@ class _AdminDashboardState extends State<AdminDashboard> {
       }
     }
     return const Color(0xFF8E24AA);
+  }
+
+  Widget _buildClassSection(
+    String title,
+    List<Map<String, dynamic>> sessions,
+    String type,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Column(
+            children: sessions.map((session) {
+              final students = _sessionStudents[session['session_id']] ?? [];
+              final studentNames = students
+                  .map((s) => s['studentName'] as String)
+                  .join(', ');
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: type == "past"
+                      ? const Color(0xFFBA68C8)
+                      : type == "ongoing"
+                      ? const Color(0xFF4DB6AC)
+                      : const Color(0xFFFFA726),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.class_, color: Colors.white),
+                        const SizedBox(width: 6),
+                        Text(
+                          "${session['courseName']} - ${session['teacherName']}",
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      "Students: $studentNames",
+                      style: const TextStyle(color: Colors.white70),
+                    ),
+                    Text(
+                      "${session['courseDate']} (${session['startTime']} - ${session['endTime']})\nRoom: ${session['room']}",
+                      style: const TextStyle(color: Colors.white70),
+                    ),
+                    if (type == "past") const SizedBox(height: 12),
+                    if (type == "past")
+                      Align(
+                        alignment: Alignment.bottomRight,
+                        child: ElevatedButton.icon(
+                          onPressed: () =>
+                              _showStudentReports(session, students),
+                          icon: const Icon(Icons.visibility),
+                          label: const Text("View Reports"),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: Colors.green,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showStudentReports(
+    Map<String, dynamic> session,
+    List<Map<String, dynamic>> students,
+  ) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('View Reports'),
+        content: SizedBox(
+          width: 300,
+          height: 300,
+          child: ListView.builder(
+            itemCount: students.length,
+            itemBuilder: (context, index) {
+              final student = students[index];
+              final hasReport = student['hasReport'] == '1';
+              return ListTile(
+                title: Text(student['studentName']),
+                subtitle: Text(hasReport ? '✅ Report exists' : 'No report'),
+                trailing: Icon(
+                  hasReport ? Icons.visibility : Icons.assignment,
+                  color: hasReport ? Colors.green : Colors.grey,
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showReport(student, session);
+                },
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: Navigator.of(context).pop,
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showReport(Map<String, dynamic> student, Map<String, dynamic> session) {
+    showDialog(
+      context: context,
+      builder: (_) => ReportDetailPopup(
+        studentName: student['studentName'] ?? 'N/A',
+        title: student['title'] ?? 'No report',
+        course: session['courseName'] ?? '-',
+        meetingNumber: 1,
+        description: student['description'] ?? 'No report available',
+        imageUrl: student['picture'] ?? '',
+        time: "${session['startTime']} - ${session['endTime']}",
+        place: session['room'] ?? '-',
+      ),
+    );
   }
 }

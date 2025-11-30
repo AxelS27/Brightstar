@@ -3,9 +3,12 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../../../core/config/api_config.dart';
 import '../../shared/widgets/report_detail_popup.dart';
+import '../../shared/widgets/brightstar_appbar.dart';
+import 'admin_information_page.dart';
 
 class AdminReportsPage extends StatefulWidget {
-  const AdminReportsPage({super.key});
+  final String adminId;
+  const AdminReportsPage({super.key, required this.adminId});
 
   @override
   State<AdminReportsPage> createState() => _AdminReportsPageState();
@@ -14,23 +17,45 @@ class AdminReportsPage extends StatefulWidget {
 class _AdminReportsPageState extends State<AdminReportsPage> {
   DateTime? startDate, endDate;
   List<Map<String, dynamic>> _reports = [];
+  Map<String, dynamic>? _adminInfo;
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
+    _loadAdminInfo();
     _loadAllReports();
+  }
+
+  Future<void> _loadAdminInfo() async {
+    try {
+      final url = Uri.parse(
+        "${ApiConfig.baseUrl}/get_admin.php?id=${widget.adminId}",
+      );
+      final res = await http.get(url);
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['status'] == 'success') {
+          setState(() {
+            _adminInfo = data['data'];
+            _isLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+    }
   }
 
   Future<void> _loadAllReports() async {
     String url = "${ApiConfig.baseUrl}/get_all_reports.php";
     if (startDate != null) {
       url +=
-          "&start_date=${startDate!.year}-${startDate!.month.toString().padLeft(2, '0')}-${startDate!.day.toString().padLeft(2, '0')}";
+          "&start_date=${startDate!.year.toString().padLeft(4, '0')}-${startDate!.month.toString().padLeft(2, '0')}-${startDate!.day.toString().padLeft(2, '0')}";
     }
     if (endDate != null) {
       url +=
-          "&end_date=${endDate!.year}-${endDate!.month.toString().padLeft(2, '0')}-${endDate!.day.toString().padLeft(2, '0')}";
+          "&end_date=${endDate!.year.toString().padLeft(4, '0')}-${endDate!.month.toString().padLeft(2, '0')}-${endDate!.day.toString().padLeft(2, '0')}";
     }
     try {
       final res = await http.get(Uri.parse(url));
@@ -76,8 +101,25 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
         ),
       );
     }
+    final adminName = _adminInfo?['adminName'] ?? 'Admin';
     return Scaffold(
-      appBar: AppBar(title: const Text("All Reports")),
+      backgroundColor: const Color(0xFFF7F5FB),
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(170),
+        child: BrightStarAppBar(
+          title: "All Reports",
+          teacherName: adminName,
+          showBackButton: false,
+          onAvatarTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => AdminInformationPage(adminId: widget.adminId),
+              ),
+            );
+          },
+        ),
+      ),
       body: Column(
         children: [
           Padding(

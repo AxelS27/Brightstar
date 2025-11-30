@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/config/api_config.dart';
 
 class ReportDetailPopup extends StatelessWidget {
   final String studentName;
@@ -23,6 +24,10 @@ class ReportDetailPopup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    String fullImageUrl = imageUrl;
+    if (imageUrl.isNotEmpty && !imageUrl.startsWith('http')) {
+      fullImageUrl = '${ApiConfig.baseUrl}/uploads/$imageUrl';
+    }
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
@@ -72,7 +77,7 @@ class ReportDetailPopup extends StatelessWidget {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
                   child: Image.network(
-                    imageUrl,
+                    fullImageUrl,
                     width: double.infinity,
                     height: 180,
                     fit: BoxFit.cover,
