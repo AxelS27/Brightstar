@@ -16,7 +16,13 @@ class AdminReportsPage extends StatefulWidget {
 
 class _AdminReportsPageState extends State<AdminReportsPage> {
   DateTime? startDate, endDate;
+  String selectedCourse = 'All Courses';
+  String selectedTeacher = 'All Teachers';
+  String selectedStudent = 'All Students';
   List<Map<String, dynamic>> _reports = [];
+  List<String> courses = ['All Courses'];
+  List<String> teachers = ['All Teachers'];
+  List<String> students = ['All Students'];
   Map<String, dynamic>? _adminInfo;
   bool _isLoading = true;
 
@@ -24,7 +30,7 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
   void initState() {
     super.initState();
     _loadAdminInfo();
-    _loadAllReports();
+    _loadFilters();
   }
 
   Future<void> _loadAdminInfo() async {
@@ -38,39 +44,84 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
         if (data['status'] == 'success') {
           setState(() {
             _adminInfo = data['data'];
-            _isLoading = false;
           });
         }
       }
+    } catch (e) {}
+  }
+
+  Future<void> _loadFilters() async {
+    try {
+      final courseRes = await http.get(
+        Uri.parse("${ApiConfig.baseUrl}/get_all_courses.php"),
+      );
+      if (courseRes.statusCode == 200 &&
+          jsonDecode(courseRes.body)['status'] == 'success') {
+        courses =
+            ['All Courses'] +
+            List<String>.from(
+              jsonDecode(courseRes.body)['data'].map((c) => c['name']),
+            );
+      }
+
+      final teacherRes = await http.get(
+        Uri.parse("${ApiConfig.baseUrl}/get_all_teachers.php"),
+      );
+      if (teacherRes.statusCode == 200 &&
+          jsonDecode(teacherRes.body)['status'] == 'success') {
+        teachers =
+            ['All Teachers'] +
+            List<String>.from(
+              jsonDecode(teacherRes.body)['data'].map((t) => t['full_name']),
+            );
+      }
+
+      final studentRes = await http.get(
+        Uri.parse("${ApiConfig.baseUrl}/get_all_students.php"),
+      );
+      if (studentRes.statusCode == 200 &&
+          jsonDecode(studentRes.body)['status'] == 'success') {
+        students =
+            ['All Students'] +
+            List<String>.from(
+              jsonDecode(studentRes.body)['data'].map((s) => s['full_name']),
+            );
+      }
+
+      setState(() {
+        _loadAllReports();
+        _isLoading = false;
+      });
     } catch (e) {
       setState(() => _isLoading = false);
     }
   }
 
+  String _fmt(DateTime d) =>
+      "${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}";
+
   Future<void> _loadAllReports() async {
-    String url = "${ApiConfig.baseUrl}/get_all_reports.php";
-    if (startDate != null) {
-      url +=
-          "&start_date=${startDate!.year.toString().padLeft(4, '0')}-${startDate!.month.toString().padLeft(2, '0')}-${startDate!.day.toString().padLeft(2, '0')}";
-    }
-    if (endDate != null) {
-      url +=
-          "&end_date=${endDate!.year.toString().padLeft(4, '0')}-${endDate!.month.toString().padLeft(2, '0')}-${endDate!.day.toString().padLeft(2, '0')}";
-    }
+    final params = <String, String>{};
+    if (startDate != null) params['start_date'] = _fmt(startDate!);
+    if (endDate != null) params['end_date'] = _fmt(endDate!);
+    if (selectedCourse != 'All Courses') params['course'] = selectedCourse;
+    if (selectedTeacher != 'All Teachers') params['teacher'] = selectedTeacher;
+    if (selectedStudent != 'All Students') params['student'] = selectedStudent;
+
+    final uri = Uri.parse(
+      "${ApiConfig.baseUrl}/get_all_reports.php",
+    ).replace(queryParameters: params);
     try {
-      final res = await http.get(Uri.parse(url));
+      final res = await http.get(uri);
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         if (data['status'] == 'success') {
           setState(() {
             _reports = List<Map<String, dynamic>>.from(data['data']);
-            _isLoading = false;
           });
         }
       }
-    } catch (e) {
-      setState(() => _isLoading = false);
-    }
+    } catch (e) {}
   }
 
   Future<void> _selectDate(bool isStart) async {
@@ -92,6 +143,56 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
     }
   }
 
+  void _showFilterSheet(
+    String type,
+    List<String> items,
+    String current,
+    Function(String) onChanged,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Select $type',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              ...items.map((item) {
+                return ListTile(
+                  title: Text(item),
+                  selected: item == current,
+                  selectedTileColor: Colors.purple.withAlpha(25),
+                  onTap: () {
+                    Navigator.pop(context);
+                    onChanged(item);
+                  },
+                );
+              }),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  String _formatDateLabel(DateTime? date) {
+    if (date == null) return 'Not set';
+    return "${date.day}/${date.month}/${date.year}";
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -101,8 +202,10 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
         ),
       );
     }
+
     final adminName = _adminInfo?['adminName'] ?? 'Admin';
     final profileImageUrl = _adminInfo?['profile_image'];
+
     return Scaffold(
       backgroundColor: const Color(0xFFF7F5FB),
       appBar: PreferredSize(
@@ -125,37 +228,55 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: [
-                Expanded(
-                  child: Card(
-                    child: ListTile(
-                      leading: const Icon(Icons.date_range),
-                      title: const Text('Start Date'),
-                      subtitle: Text(
-                        startDate?.toIso8601String().split('T')[0] ?? 'Not set',
-                      ),
-                      onTap: () => _selectDate(true),
-                    ),
+                _buildDateButton(
+                  label: 'Start: ${_formatDateLabel(startDate)}',
+                  onPressed: () => _selectDate(true),
+                ),
+                _buildDateButton(
+                  label: 'End: ${_formatDateLabel(endDate)}',
+                  onPressed: () => _selectDate(false),
+                ),
+                _buildFilterChip(
+                  label: selectedCourse,
+                  onPressed: () =>
+                      _showFilterSheet('Course', courses, selectedCourse, (v) {
+                        setState(() => selectedCourse = v);
+                        _loadAllReports();
+                      }),
+                ),
+                _buildFilterChip(
+                  label: selectedTeacher,
+                  onPressed: () => _showFilterSheet(
+                    'Teacher',
+                    teachers,
+                    selectedTeacher,
+                    (v) {
+                      setState(() => selectedTeacher = v);
+                      _loadAllReports();
+                    },
                   ),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Card(
-                    child: ListTile(
-                      leading: const Icon(Icons.date_range),
-                      title: const Text('End Date'),
-                      subtitle: Text(
-                        endDate?.toIso8601String().split('T')[0] ?? 'Not set',
-                      ),
-                      onTap: () => _selectDate(false),
-                    ),
+                _buildFilterChip(
+                  label: selectedStudent,
+                  onPressed: () => _showFilterSheet(
+                    'Student',
+                    students,
+                    selectedStudent,
+                    (v) {
+                      setState(() => selectedStudent = v);
+                      _loadAllReports();
+                    },
                   ),
                 ),
               ],
             ),
           ),
+
           Expanded(
             child: _reports.isEmpty
                 ? const Center(
@@ -257,6 +378,51 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildDateButton({
+    required String label,
+    required VoidCallback onPressed,
+  }) {
+    return OutlinedButton.icon(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: Colors.purple,
+        side: const BorderSide(color: Color(0xFF8E24AA)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      ),
+      icon: const Icon(Icons.calendar_today, size: 16),
+      label: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontSize: 12),
+      ),
+      onPressed: onPressed,
+    );
+  }
+
+  Widget _buildFilterChip({
+    required String label,
+    required VoidCallback onPressed,
+  }) {
+    return FilterChip(
+      label: Text(
+        label,
+        style: const TextStyle(fontSize: 12, color: Color(0xFF8E24AA)),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      selected: false,
+      onSelected: (_) => onPressed(),
+      backgroundColor: Colors.white,
+      selectedColor: Colors.purple.withAlpha(25),
+      shape: RoundedRectangleBorder(
+        side: const BorderSide(color: Color(0xFF8E24AA)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
     );
   }
 }

@@ -16,15 +16,17 @@ class StudentViewReportPage extends StatefulWidget {
 
 class _StudentViewReportPageState extends State<StudentViewReportPage> {
   DateTime? startDate, endDate;
+  String selectedCourse = 'All Courses';
   Map<String, dynamic>? studentData;
   bool _isLoading = true;
   List<Map<String, dynamic>> reports = [];
+  List<String> courses = ['All Courses'];
 
   @override
   void initState() {
     super.initState();
     _loadStudentInfo();
-    _loadReports();
+    _loadStudentCourses();
   }
 
   Future<void> _loadStudentInfo() async {
@@ -38,7 +40,6 @@ class _StudentViewReportPageState extends State<StudentViewReportPage> {
         if (data['status'] == 'success') {
           setState(() {
             studentData = data;
-            _isLoading = false;
           });
         }
       }
@@ -47,19 +48,72 @@ class _StudentViewReportPageState extends State<StudentViewReportPage> {
     }
   }
 
+  Future<void> _loadStudentCourses() async {
+    try {
+      final coursesRes = await http.get(
+        Uri.parse(
+          "${ApiConfig.baseUrl}/get_student_courses.php?student_id=${widget.studentId}",
+        ),
+      );
+      List<String> courseNames = ['All Courses'];
+
+      if (coursesRes.statusCode == 200) {
+        final coursesData = jsonDecode(coursesRes.body);
+        if (coursesData['status'] == 'success') {
+          final courseIds = List<String>.from(
+            coursesData['data'].map((c) => c['course_type_id']),
+          );
+
+          if (courseIds.isNotEmpty) {
+            final detailsRes = await http.post(
+              Uri.parse("${ApiConfig.baseUrl}/get_courses_by_ids.php"),
+              headers: {"Content-Type": "application/json"},
+              body: jsonEncode({'course_ids': courseIds}),
+            );
+            if (detailsRes.statusCode == 200) {
+              final detailsData = jsonDecode(detailsRes.body);
+              if (detailsData['status'] == 'success') {
+                courseNames =
+                    ['All Courses'] +
+                    List<String>.from(
+                      detailsData['data'].map((c) => c['name']),
+                    );
+              }
+            }
+          }
+        }
+      }
+
+      setState(() {
+        courses = courseNames;
+        _loadReports();
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+    }
+  }
+
   Future<void> _loadReports() async {
-    String url =
-        "${ApiConfig.baseUrl}/get_student_reports.php?studentId=${widget.studentId}";
+    final params = <String, String>{'studentId': widget.studentId};
     if (startDate != null) {
-      url +=
-          "&start_date=${startDate!.year.toString().padLeft(4, '0')}-${startDate!.month.toString().padLeft(2, '0')}-${startDate!.day.toString().padLeft(2, '0')}";
+      params['start_date'] =
+          "${startDate!.year}-${startDate!.month.toString().padLeft(2, '0')}-${startDate!.day.toString().padLeft(2, '0')}";
     }
     if (endDate != null) {
-      url +=
-          "&end_date=${endDate!.year.toString().padLeft(4, '0')}-${endDate!.month.toString().padLeft(2, '0')}-${endDate!.day.toString().padLeft(2, '0')}";
+      params['end_date'] =
+          "${endDate!.year}-${endDate!.month.toString().padLeft(2, '0')}-${endDate!.day.toString().padLeft(2, '0')}";
     }
+    if (selectedCourse != 'All Courses') {
+      params['course'] = selectedCourse;
+    }
+
+    final uri = Uri.parse(
+      "${ApiConfig.baseUrl}/get_student_reports.php",
+    ).replace(queryParameters: params);
+
     try {
-      final res = await http.get(Uri.parse(url));
+      final res = await http.get(uri);
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body);
         if (body['status'] == 'success') {
@@ -131,31 +185,72 @@ class _StudentViewReportPageState extends State<StudentViewReportPage> {
           children: [
             Padding(
               padding: const EdgeInsets.all(12),
-              child: Row(
+              child: Column(
                 children: [
-                  Expanded(
-                    child: Card(
-                      child: ListTile(
-                        leading: const Icon(Icons.date_range),
-                        title: const Text('Start Date'),
-                        subtitle: Text(
-                          startDate?.toIso8601String().split('T')[0] ??
-                              'Not set',
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Card(
+                          child: ListTile(
+                            leading: const Icon(Icons.date_range),
+                            title: const Text('Start Date'),
+                            subtitle: Text(
+                              startDate?.toIso8601String().split('T')[0] ??
+                                  'Not set',
+                            ),
+                            onTap: () => _selectDate(true),
+                          ),
                         ),
-                        onTap: () => _selectDate(true),
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Card(
-                      child: ListTile(
-                        leading: const Icon(Icons.date_range),
-                        title: const Text('End Date'),
-                        subtitle: Text(
-                          endDate?.toIso8601String().split('T')[0] ?? 'Not set',
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Card(
+                          child: ListTile(
+                            leading: const Icon(Icons.date_range),
+                            title: const Text('End Date'),
+                            subtitle: Text(
+                              endDate?.toIso8601String().split('T')[0] ??
+                                  'Not set',
+                            ),
+                            onTap: () => _selectDate(false),
+                          ),
                         ),
-                        onTap: () => _selectDate(false),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x22000000),
+                          blurRadius: 4,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: selectedCourse,
+                        isExpanded: true,
+                        borderRadius: BorderRadius.circular(8),
+                        items: courses
+                            .map(
+                              (c) => DropdownMenuItem(value: c, child: Text(c)),
+                            )
+                            .toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            setState(() => selectedCourse = value);
+                            _loadReports();
+                          }
+                        },
                       ),
                     ),
                   ),

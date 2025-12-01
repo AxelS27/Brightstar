@@ -58,22 +58,21 @@ class _ViewReportPageState extends State<ViewReportPage> {
   }
 
   Future<void> _loadReports() async {
-    String url =
-        "${ApiConfig.baseUrl}/get_teacher_reports.php?teacherId=${widget.teacherId}";
-    if (selectedCourse != 'All Courses') {
-      url += "&course=${Uri.encodeComponent(selectedCourse)}";
-    }
-    if (startDate != null) {
-      url +=
-          "&start_date=${startDate!.year.toString().padLeft(4, '0')}-${startDate!.month.toString().padLeft(2, '0')}-${startDate!.day.toString().padLeft(2, '0')}";
-    }
-    if (endDate != null) {
-      url +=
-          "&end_date=${endDate!.year.toString().padLeft(4, '0')}-${endDate!.month.toString().padLeft(2, '0')}-${endDate!.day.toString().padLeft(2, '0')}";
-    }
+    final uri = Uri.parse("${ApiConfig.baseUrl}/get_teacher_reports.php").replace(
+      queryParameters: {
+        "teacherId": widget.teacherId,
+        if (selectedCourse != 'All Courses') "course": selectedCourse,
+        if (startDate != null)
+          "start_date":
+              "${startDate!.year}-${startDate!.month.toString().padLeft(2, '0')}-${startDate!.day.toString().padLeft(2, '0')}",
+        if (endDate != null)
+          "end_date":
+              "${endDate!.year}-${endDate!.month.toString().padLeft(2, '0')}-${endDate!.day.toString().padLeft(2, '0')}",
+      },
+    );
 
     try {
-      final res = await http.get(Uri.parse(url));
+      final res = await http.get(uri);
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body);
         if (body['status'] == 'success') {
@@ -116,6 +115,7 @@ class _ViewReportPageState extends State<ViewReportPage> {
         ),
       );
     }
+
     final teacherName =
         teacherData?['data']?['teacherName'] ?? 'Unknown Teacher';
     final profileImageUrl = teacherData?['data']?['profile_image'];

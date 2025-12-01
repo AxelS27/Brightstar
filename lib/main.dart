@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'brightstar_app.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-void main() {
+Future<void> main() async {
+  await dotenv.load(fileName: ".env");
   runApp(const BrightStarApp());
 }
